@@ -190,7 +190,8 @@ class PLAAMLLMTrainer:
         logits = outputs.get('logits', None)
         
         if logits is not None:
-            shift_logits = logits[..., :-1, :].contiguous()
+            vision_tokens = outputs.get('vision_tokens', None)
+            num_vision_tokens = vision_tokens.size(1) if vision_tokens is not None else self.model_config.num_latent_queries
             
             expert_text = labels.get('expert_explanation', '')
             if tokenizer is not None and expert_text:
@@ -202,11 +203,22 @@ class PLAAMLLMTrainer:
                     return_tensors='pt'
                 )
                 target_ids = tokenized['input_ids'].to(self.device)
-                shift_labels = target_ids[..., 1:].contiguous()
+                
+                ignore_tokens = torch.full(
+                    (target_ids.size(0), num_vision_tokens),
+                    -100,
+                    dtype=target_ids.dtype,
+                    device=self.device
+                )
+                full_target_ids = torch.cat([ignore_tokens, target_ids], dim=1)
+                
+                shift_logits = logits[..., :-1, :].contiguous()
+                shift_labels = full_target_ids[..., 1:].contiguous()
                 
                 clm_loss = F.cross_entropy(
                     shift_logits.view(-1, shift_logits.size(-1)),
-                    shift_labels.view(-1)
+                    shift_labels.view(-1),
+                    ignore_index=-100
                 )
                 return {'clm_loss': clm_loss, 'total_loss': clm_loss}
         

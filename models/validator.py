@@ -108,7 +108,12 @@ class PLAAMLLMValidator:
         """
         outputs = self.model(image, text_prompt)
         
-        detection_result = outputs.get('detection_result', 0.5)
+        detection_logits = outputs.get('detection_logits', None)
+        if detection_logits is not None:
+            detection_result = torch.sigmoid(detection_logits).item()
+        else:
+            detection_result = 0.5
+        
         pred_mask = outputs.get('pred_mask', None)
         explanation = outputs.get('explanation', '')
         

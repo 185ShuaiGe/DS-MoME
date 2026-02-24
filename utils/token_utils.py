@@ -1,21 +1,21 @@
 
 import torch
-from typing import List, Dict, Optional, Union
 from transformers import AutoTokenizer
 from configs.model_config import ModelConfig
 
 
 class TokenUtils:
-    def __init__(self, config: ModelConfig):
+    def __init__(self, config):
         self.config = config
         self.tokenizer = None
+        self._init_tokenizer()
 
     def encode_text(
         self,
-        text: Union[str, List[str]],
-        max_length: Optional[int] = None,
-        return_tensors: str = "pt"
-    ) -&gt; Dict[str, Union[list, torch.Tensor]]:
+        text,
+        max_length=None,
+        return_tensors="pt"
+    ):
         """
         将文本编码为 token ID
 
@@ -29,13 +29,25 @@ class TokenUtils:
                 - 'input_ids': token ID 列表或张量
                 - 'attention_mask': 注意力掩码列表或张量
         """
-        pass
+        if max_length is None:
+            max_length = self.config.max_seq_len
+        
+        if self.tokenizer is None:
+            raise ValueError("Tokenizer not initialized")
+        
+        return self.tokenizer(
+            text,
+            max_length=max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors=return_tensors
+        )
 
     def decode_tokens(
         self,
-        token_ids: Union[List[int], torch.Tensor],
-        skip_special_tokens: bool = True
-    ) -&gt; str:
+        token_ids,
+        skip_special_tokens=True
+    ):
         """
         将 token ID 解码为文本
 
@@ -46,13 +58,23 @@ class TokenUtils:
         Returns:
             str: 解码后的文本
         """
-        pass
+        if self.tokenizer is None:
+            raise ValueError("Tokenizer not initialized")
+        
+        if isinstance(token_ids, torch.Tensor):
+            if token_ids.dim() > 1:
+                token_ids = token_ids[0]
+        
+        return self.tokenizer.decode(
+            token_ids,
+            skip_special_tokens=skip_special_tokens
+        )
 
     def pad_sequences(
         self,
-        sequences: List[List[int]],
-        padding_side: str = "right"
-    ) -&gt; Dict[str, torch.Tensor]:
+        sequences,
+        padding_side="right"
+    ):
         """
         对序列进行填充
 
@@ -65,12 +87,36 @@ class TokenUtils:
                 - 'input_ids': 填充后的 input_ids
                 - 'attention_mask': 注意力掩码
         """
-        pass
+        if self.tokenizer is None:
+            raise ValueError("Tokenizer not initialized")
+        
+        max_len = max(len(seq) for seq in sequences)
+        
+        input_ids = []
+        attention_masks = []
+        
+        for seq in sequences:
+            pad_len = max_len - len(seq)
+            
+            if padding_side == "right":
+                padded_seq = seq + [self.tokenizer.pad_token_id] * pad_len
+                mask = [1] * len(seq) + [0] * pad_len
+            else:
+                padded_seq = [self.tokenizer.pad_token_id] * pad_len + seq
+                mask = [0] * pad_len + [1] * len(seq)
+            
+            input_ids.append(padded_seq)
+            attention_masks.append(mask)
+        
+        return {
+            "input_ids": torch.tensor(input_ids),
+            "attention_mask": torch.tensor(attention_masks)
+        }
 
-    def _init_tokenizer(self) -&gt; None:
-        """
-        初始化 tokenizer
-
-        从预训练模型加载 AutoTokenizer
-        """
-        pass
+    def _init_tokenizer(self):
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.config.llm_model_name)
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+        except Exception as e:
+            pass
