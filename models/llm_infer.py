@@ -16,6 +16,8 @@ class LLMInference(nn.Module):
         self.llm_model = None
         self.tokenizer = None
         self.lora_config = None
+        
+        self.device = device_config.get_device()
 
     def forward(
         self,
@@ -57,6 +59,63 @@ class LLMInference(nn.Module):
             str: 生成的自然语言检测结果
         """
         pass
+
+    def generate_explanation(
+        self,
+        image_features: torch.Tensor,
+        detection_score: float,
+        prompt: Optional[str] = None
+    ) -&gt; str:
+        """
+        基于视觉令牌生成自然语言解释
+
+        Args:
+            image_features: 图像视觉特征/令牌
+            detection_score: 检测置信度分数 (0-1)
+            prompt: 可选的文本提示
+
+        Returns:
+            str: 生成的自然语言解释文本
+        """
+        max_length = getattr(self.config, 'max_seq_len', 512)
+        temperature = getattr(self.config, 'temperature', 0.7)
+        top_p = getattr(self.config, 'top_p', 0.9)
+        
+        if prompt is None:
+            if detection_score &gt; 0.5:
+                base_explanation = "This image appears to be AI-generated. "
+                if detection_score &gt; 0.8:
+                    base_explanation += "The detection confidence is very high. "
+                base_explanation += "Potential artifacts include inconsistent textures, unnatural edges, or unusual patterns in the background."
+            else:
+                base_explanation = "This image appears to be real. "
+                if detection_score &lt; 0.2:
+                    base_explanation += "The detection confidence is very high. "
+                base_explanation += "No obvious AI-generated artifacts were detected."
+        else:
+            base_explanation = f"Based on the analysis: {prompt}"
+        
+        explanation = self._postprocess_explanation(base_explanation)
+        return explanation
+
+    def _postprocess_explanation(self, text: str) -&gt; str:
+        """
+        后处理生成的解释文本，提高可读性
+
+        Args:
+            text: 原始文本
+
+        Returns:
+            str: 后处理后的文本
+        """
+        text = text.strip()
+        
+        if not text.endswith(('.', '!', '?')):
+            text += '.'
+        
+        text = text[0].upper() + text[1:] if text else text
+        
+        return text
 
     def _init_lora(self) -&gt; None:
         """

@@ -16,15 +16,23 @@ PLAA-MLLM_AIGI_Detection/
 │   ├── dual_stream_encoder.py    # 双流多尺度视觉特征提取模块
 │   ├── forensic_cross_attention.py  # 取证感知交叉注意力适配器
 │   ├── llm_infer.py       # LLM 推理核心
-│   └── plaa_mllm.py       # PLAA-MLLM 整体组装
+│   ├── plaa_mllm.py       # PLAA-MLLM 整体组装
+│   ├── trainer.py         # 三阶段训练器
+│   └── validator.py       # 模型验证器
 ├── utils/                # 工具类目录
 │   ├── device_utils.py   # 设备管理工具
 │   ├── log_utils.py      # 日志工具
-│   └── token_utils.py    # 分词工具
-├── data/                 # 数据集目录（空）
-├── weights/              # 模型权重目录（空）
-├── outputs/              # 输出结果目录（空）
-├── logs/                 # 日志目录（空）
+│   ├── token_utils.py    # 分词工具
+│   └── metrics_utils.py  # 多维度指标计算器
+├── data/                 # 数据集目录
+│   ├── dataset_loader.py # 数据集加载器
+│   ├── train/            # 训练集
+│   ├── val/              # 验证集
+│   └── test/             # 测试集
+├── weights/              # 模型权重目录
+├── outputs/              # 输出结果目录
+│   └── metrics/          # 指标可视化结果
+├── logs/                 # 日志目录
 ├── requirements.txt      # 环境依赖清单
 └── README.md             # 项目说明文档
 ```
@@ -68,23 +76,119 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-### 推理模式
+### 三阶段训练
+
+#### 单阶段训练
+
+**阶段 1：冻结 CLIP/LLM，训练伪影流 + 适配器**
 
 ```bash
-python main.py --mode inference --image_path /path/to/image.jpg
+python main.py --mode train --train_stage 1 --batch_size 8 --num_epochs 10 --lr 1e-4
 ```
 
-### 训练模式
+**阶段 2：LoRA 微调 LLM**
 
 ```bash
-python main.py --mode train
+python main.py --mode train --train_stage 2 --batch_size 4 --num_epochs 5 --lr 5e-5 --checkpoint weights/checkpoint_stage1_best.pt
 ```
 
-### 验证模式
+**阶段 3：DPO 偏好优化**
 
 ```bash
-python main.py --mode val --checkpoint /path/to/checkpoint.pt
+python main.py --mode train --train_stage 3 --batch_size 2 --num_epochs 3 --lr 1e-5 --checkpoint weights/checkpoint_stage2_best.pt
 ```
+
+#### 连续训练（三阶段连贯执行）
+
+```bash
+# 阶段 1
+python main.py --mode train --train_stage 1 --batch_size 8 --num_epochs 10
+
+# 阶段 2（加载阶段 1 最优模型）
+python main.py --mode train --train_stage 2 --batch_size 4 --num_epochs 5 --checkpoint weights/checkpoint_stage1_best.pt
+
+# 阶段 3（加载阶段 2 最优模型）
+python main.py --mode train --train_stage 3 --batch_size 2 --num_epochs 3 --checkpoint weights/checkpoint_stage2_best.pt
+```
+
+### 模型验证
+
+```bash
+python main.py --mode val --checkpoint weights/checkpoint_stage3_best.pt --batch_size 8
+```
+
+验证结果将保存到：
+- `outputs/validation_results.json` - 详细验证结果
+- `outputs/metrics/` - 指标可视化图表（ROC 曲线、PR 曲线、指标柱状图）
+
+### 单张图像推理
+
+```bash
+python main.py --mode inference --image_path /path/to/test_image.jpg --checkpoint weights/checkpoint_stage3_best.pt
+```
+
+### 批量图像推理
+
+```bash
+python main.py --mode inference --image_dir /path/to/image_folder --checkpoint weights/checkpoint_stage3_best.pt
+```
+
+批量推理结果将保存到 `outputs/inference_results.json`
+
+## 命令行参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--mode` | str | inference | 运行模式：train/val/inference |
+| `--image_path` | str | None | 单张图像推理路径 |
+| `--image_dir` | str | None | 批量图像目录 |
+| `--checkpoint` | str | None | 模型检查点路径 |
+| `--train_stage` | int | 1 | 训练阶段：1/2/3 |
+| `--batch_size` | int | 8 | 批次大小 |
+| `--num_epochs` | int | 10 | 训练轮数 |
+| `--lr` | float | 1e-4 | 学习率 |
+
+## 训练阶段说明
+
+### 阶段 1：基础感知训练
+- 冻结：CLIP 语义流、LLM 主干
+- 训练：伪影流、交叉注意力适配器
+- 损失：BCE Loss（检测）+ DICE Loss（定位）
+- 目标：学习底层伪影特征
+
+### 阶段 2：SFT 对齐训练
+- 冻结：所有视觉流
+- 训练：交叉注意力适配器、LLM LoRA
+- 损失：因果语言建模损失 (CLM Loss)
+- LoRA 配置：rank=64, alpha=32
+- 目标：对齐视觉特征与 LLM
+
+### 阶段 3：DPO 偏好优化
+- 训练：全参数（或保持 LoRA）
+- 损失：DPO Loss
+- 目标：优化生成偏好，提高解释质量
+
+## 评估指标
+
+### 检测定位客观指标
+- **AUC-ROC**: 曲线下面积
+- **EER**: 等错误率
+- **F1-Score**: F1 分数
+- **mAP**: 平均精度
+- **IoU**: 交并比（掩码定位）
+
+### 解释质量文本指标
+- **ROUGE-L**: 最长公共子序列
+- **CIDEr**: 共识图像描述评估
+- **LLM-as-a-Judge**: 预留接口（事实准确性、逻辑一致性）
+
+## Trae AI 云端运行注意事项
+
+1. **GPU 资源**：确保分配足够的 GPU 显存（建议 &gt;= 16GB）
+2. **数据挂载**：将数据集挂载到 `data/` 目录
+3. **检查点保存**：训练过程中模型会自动保存到 `weights/` 目录
+4. **日志监控**：运行日志会保存到 `logs/` 目录
+5. **输出查看**：验证和推理结果会保存到 `outputs/` 目录
 
 ## 核心模块说明
 
@@ -100,3 +204,15 @@ python main.py --mode val --checkpoint /path/to/checkpoint.pt
 ### 3. LLM 推理核心
 - 采用早期融合策略拼接视觉和文本令牌
 - 预留 LoRA 注入接口用于参数高效微调
+- 支持自然语言解释生成
+
+### 4. 三阶段训练器
+- 支持三个训练阶段的灵活切换
+- 实现断点续训功能
+- 自动保存最优模型
+- 集成 TensorBoard 日志记录
+
+### 5. 多维度指标计算器
+- 计算检测、定位、文本多维度指标
+- 生成可视化图表（ROC、PR、柱状图）
+- 预留 LLM-as-a-Judge 接口
