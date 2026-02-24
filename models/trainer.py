@@ -227,6 +227,17 @@ class PLAAMLLMTrainer:
                     device=self.device
                 )
                 
+                if ignore_vision.dim() != 2:
+                    ignore_vision = ignore_vision.squeeze(0) if ignore_vision.dim() == 3 else ignore_vision
+                if target_ids.dim() != 2:
+                    target_ids = target_ids.squeeze(0) if target_ids.dim() == 3 else target_ids
+                
+                if ignore_vision.size(0) != target_ids.size(0):
+                    if ignore_vision.size(0) == 1 and target_ids.size(0) > 1:
+                        ignore_vision = ignore_vision.repeat(target_ids.size(0), 1)
+                    elif target_ids.size(0) == 1 and ignore_vision.size(0) > 1:
+                        target_ids = target_ids.repeat(ignore_vision.size(0), 1)
+                
                 target_mask = torch.cat([ignore_vision, target_ids], dim=1)
                 
                 shift_logits = logits[..., :-1, :].contiguous()
@@ -293,10 +304,12 @@ class PLAAMLLMTrainer:
             shift_logits = logits[..., :-1, :].contiguous()
             shift_labels = full_target_ids[..., 1:].contiguous()
             
-            log_probs = F.log_softmax(shift_logits, dim=-1)
-            log_probs = log_probs.gather(-1, shift_labels.unsqueeze(-1)).squeeze(-1)
-            
             valid_mask = (shift_labels != -100)
+            safe_labels = shift_labels.clone()
+            safe_labels[~valid_mask] = 0
+            
+            log_probs = F.log_softmax(shift_logits, dim=-1)
+            log_probs = log_probs.gather(-1, safe_labels.unsqueeze(-1)).squeeze(-1)
             if valid_mask.sum() > 0:
                 log_probs = log_probs * valid_mask.float()
                 return log_probs.sum() / valid_mask.sum()
@@ -409,9 +422,9 @@ class PLAAMLLMTrainer:
                     single_image = images[i:i+1]
                     single_prompt = text_prompts[i] if isinstance(text_prompts, (list, tuple)) else text_prompts
                     
-                    outputs = self.model(single_image, single_prompt)
                     
                     if self.stage == 1:
+                        outputs = self.model(single_image, single_prompt)
                         single_label = labels[i:i+1] if isinstance(labels, torch.Tensor) else [labels[i]]
                         single_label_tensor = torch.tensor([single_label], device=self.device) if not isinstance(labels, torch.Tensor) else single_label
                         
@@ -423,9 +436,15 @@ class PLAAMLLMTrainer:
                         loss_dict = self.compute_loss_stage1(outputs, single_label_tensor, mask)
                     elif self.stage == 2:
                         single_info = {k: v[i] if isinstance(v, (list, tuple, torch.Tensor)) else v for k, v in annotation_info.items()}
-                        loss_dict = self.compute_loss_stage2(outputs, single_info, self.tokenizer)
+                        expert_explanation = single_info.get('expert_explanation', '')
+                        combined_text = single_prompt + " " + expert_explanation if expert_explanation else single_prompt
+                        outputs = self.model(single_image, combined_text)
+                        loss_dict = self.compute_loss_stage2(outputs, single_info, self.tokenizer, single_prompt)
                     else:
-                        loss_dict = {'total_loss': torch.tensor(0.0, device=self.device)}
+                        single_info = {k: v[i] if isinstance(v, (list, tuple, torch.Tensor)) else v for k, v in annotation_info.items()}
+                        winner_text = single_info.get('winner', '')
+                        loser_text = single_info.get('loser', '')
+                        loss_dict = self.compute_loss_stage3(single_image, winner_text, loser_text)
                     
                     batch_losses.append(loss_dict['total_loss'])
                 
