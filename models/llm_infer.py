@@ -33,7 +33,8 @@ class LLMInference(nn.Module):
 
         Returns:
             Dict[str, torch.Tensor]: LLM 输出字典
-                - 'logits': 输出 logits，形状 [B, T, V]，V=vocab_size
+                - 'logits': 输出 logits，形状 [B, N+T, V]，V=vocab_size
+                    注意：序列长度为 N（视觉令牌数量）+ T（文本令牌数量）
                 - 'loss': 可选的损失值（训练时）
         """
         pass

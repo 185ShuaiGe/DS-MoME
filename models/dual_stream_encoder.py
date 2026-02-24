@@ -23,9 +23,11 @@ class SemanticStream(nn.Module):
 
         Returns:
             Dict[str, torch.Tensor]: 包含中间层特征的字典
-                - 'layer_8': 第8层特征，形状 [B, D1, H1, W1]
-                - 'layer_16': 第16层特征，形状 [B, D2, H2, W2]
-                - 'layer_24': 第24层特征，形状 [B, D3, H3, W3]
+                - 'layer_8': 第8层特征，原始序列格式 [B, L, D]
+                    (L=257 for ViT-L/14: 256 patches + 1 CLS token, D=1024)
+                - 'layer_16': 第16层特征，原始序列格式 [B, L, D]
+                - 'layer_24': 第24层特征，原始序列格式 [B, L, D]
+            注意：如需空间特征图，需将 [B, L, D] 去除 CLS token 后 reshape 为 [B, D, H/14, W/14]
         """
         pass
 

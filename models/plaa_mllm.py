@@ -70,15 +70,23 @@ class PLAAMLLM(nn.Module):
         text_tokens: Dict[str, torch.Tensor]
     ) -&gt; Tuple[torch.Tensor, torch.Tensor]:
         """
-        早期融合：拼接视觉令牌和文本令牌
+        早期融合：将视觉令牌与文本嵌入在序列维度拼接
+
+        正确流程：
+        1. 使用 LLM 的 Embedding 层将 text_tokens['input_ids'] 转换为 text_embeds [B, T, D]
+        2. 将 vision_tokens [B, N, D] 与 text_embeds [B, T, D] 在 dim=1 维度拼接
+        3. 生成对应的 fused_attention_mask
 
         Args:
-            vision_tokens: 取证视觉令牌，形状 [B, N, D]
-            text_tokens: 文本 token 字典，包含 'input_ids' 和 'attention_mask'
+            vision_tokens: 取证视觉令牌（连续浮点特征），形状 [B, N, D]
+                - B=batch_size, N=num_latent_queries, D=特征维度
+            text_tokens: 文本 token 字典，包含：
+                - 'input_ids': 离散整数索引，形状 [B, T]
+                - 'attention_mask': 注意力掩码，形状 [B, T]
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]:
-                - fused_input_ids: 融合后的输入 ID，形状 [B, N+T]
+                - inputs_embeds: 融合后的输入嵌入，形状 [B, N+T, D]
                 - fused_attention_mask: 融合后的注意力掩码，形状 [B, N+T]
         """
         pass
