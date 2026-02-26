@@ -1,6 +1,6 @@
 
 class ModelConfig:
-    clip_model_name = "openai/clip-vit-large-patch14"
+    clip_model_name = "D:\\cache\\huggingface_cache\\hub\\models--openai--clip-vit-large-patch14"    
     clip_dim = 1024
     clip_intermediate_layers = [8, 16, 24]
     resnet_depth = 50
@@ -11,7 +11,7 @@ class ModelConfig:
     num_attention_heads = 8
     cross_attention_heads = 8
     cross_attention_layers = 6
-    llm_model_name = "meta-llama/Llama-2-7b-hf"
+    llm_model_name = "D:\\cache\\huggingface_cache\\hub\\models--mistralai--Mistral-7B-Instruct-v0.2"    
     llm_dim = 4096
     use_text_guidance = True
     lora_rank = 8

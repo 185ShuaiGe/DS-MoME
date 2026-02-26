@@ -2,7 +2,8 @@
 import argparse
 import torch
 import os
-from typing import Namespace, Optional
+from typing import Optional
+from argparse import Namespace
 from PIL import Image
 from torch.utils.data import DataLoader
 from configs.model_config import ModelConfig
@@ -306,7 +307,7 @@ def _infer_batch_images(
                 result = {
                     'filename': filename,
                     'detection_score': float(detection_score),
-                    'is_ai_generated': bool(detection_score &gt; 0.5),
+                    'is_ai_generated': bool(detection_score > 0.5),
                     'explanation': explanation
                 }
                 results.append(result)

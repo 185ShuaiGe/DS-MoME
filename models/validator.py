@@ -49,7 +49,7 @@ class PLAAMLLMValidator:
         val_loader: DataLoader,
         save_results: bool = True,
         output_dir: Optional[str] = None
-    ) -&gt; Dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         执行验证
         
@@ -93,7 +93,7 @@ class PLAAMLLMValidator:
         label: Any,
         annotation_info: Dict[str, Any],
         text_prompt: str
-    ) -&gt; Dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         验证单个样本
         
@@ -130,7 +130,7 @@ class PLAAMLLMValidator:
         
         return result
     
-    def _aggregate_results(self) -&gt; Dict[str, Any]:
+    def _aggregate_results(self) -> Dict[str, Any]:
         """
         汇总验证结果
         
@@ -152,7 +152,7 @@ class PLAAMLLMValidator:
         
         return aggregate
     
-    def _save_results(self, output_dir: str) -&gt; None:
+    def _save_results(self, output_dir: str) -> None:
         """
         保存验证结果为 JSON
         

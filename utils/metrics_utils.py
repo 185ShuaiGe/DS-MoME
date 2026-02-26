@@ -36,7 +36,7 @@ class MetricsCalculator:
         true_masks: Optional[List[np.ndarray]] = None,
         explanations: Optional[List[str]] = None,
         references: Optional[List[str]] = None
-    ) -&gt; Dict[str, float]:
+    ) -> Dict[str, float]:
         """
         计算所有指标
         
@@ -68,7 +68,7 @@ class MetricsCalculator:
         self,
         true_labels: List[int],
         pred_scores: List[float]
-    ) -&gt; Dict[str, float]:
+    ) -> Dict[str, float]:
         """
         计算检测指标：AUC-ROC, EER, F1-Score
         
@@ -81,7 +81,7 @@ class MetricsCalculator:
         """
         metrics = {}
         
-        if len(set(true_labels)) &gt; 1:
+        if len(set(true_labels)) > 1:
             metrics['auc_roc'] = roc_auc_score(true_labels, pred_scores)
             
             fpr, tpr, thresholds = roc_curve(true_labels, pred_scores)
@@ -90,7 +90,7 @@ class MetricsCalculator:
             metrics['eer'] = (fpr[eer_idx] + fnr[eer_idx]) / 2
             
             best_threshold = thresholds[np.argmax(tpr - fpr)]
-            pred_labels = [1 if s &gt;= best_threshold else 0 for s in pred_scores]
+            pred_labels = [1 if s >= best_threshold else 0 for s in pred_scores]
             metrics['f1_score'] = f1_score(true_labels, pred_labels)
             
             metrics['ap'] = average_precision_score(true_labels, pred_scores)
@@ -101,7 +101,7 @@ class MetricsCalculator:
         self,
         pred_masks: List[np.ndarray],
         true_masks: List[np.ndarray]
-    ) -&gt; Dict[str, float]:
+    ) -> Dict[str, float]:
         """
         计算定位指标：mAP, IoU
         
@@ -126,7 +126,7 @@ class MetricsCalculator:
         
         return metrics
     
-    def _calculate_iou(self, pred_mask: np.ndarray, true_mask: np.ndarray) -&gt; float:
+    def _calculate_iou(self, pred_mask: np.ndarray, true_mask: np.ndarray) -> float:
         """
         计算 IoU
         
@@ -137,8 +137,8 @@ class MetricsCalculator:
         Returns:
             float: IoU 值
         """
-        pred_binary = (pred_mask &gt; 0.5).astype(np.float32)
-        true_binary = (true_mask &gt; 0.5).astype(np.float32)
+        pred_binary = (pred_mask >= 0.5).astype(np.float32)
+        true_binary = (true_mask >= 0.5).astype(np.float32)
         
         intersection = np.sum(pred_binary * true_binary)
         union = np.sum(pred_binary) + np.sum(true_binary) - intersection
@@ -152,7 +152,7 @@ class MetricsCalculator:
         self,
         explanations: List[str],
         references: List[str]
-    ) -&gt; Dict[str, float]:
+    ) -> Dict[str, float]:
         """
         计算文本指标：ROUGE-L, CIDEr
         预留 LLM-as-a-judge 接口
@@ -171,7 +171,7 @@ class MetricsCalculator:
         
         return metrics
     
-    def _calculate_rouge_l(self, candidates: List[str], references: List[str]) -&gt; float:
+    def _calculate_rouge_l(self, candidates: List[str], references: List[str]) -> float:
         """
         计算 ROUGE-L
         
@@ -187,7 +187,7 @@ class MetricsCalculator:
             scores.append(self._lcs_score(cand, ref))
         return np.mean(scores) if scores else 0.0
     
-    def _lcs_score(self, candidate: str, reference: str) -&gt; float:
+    def _lcs_score(self, candidate: str, reference: str) -> float:
         """
         计算 LCS 分数
         
@@ -216,7 +216,7 @@ class MetricsCalculator:
             return 0.0
         return lcs_len / n
     
-    def _calculate_cider(self, candidates: List[str], references: List[str]) -&gt; float:
+    def _calculate_cider(self, candidates: List[str], references: List[str]) -> float:
         """
         计算 CIDEr 分数
         
@@ -234,7 +234,7 @@ class MetricsCalculator:
         explanations: List[str],
         references: List[str],
         images: Optional[List] = None
-    ) -&gt; Dict[str, float]:
+    ) -> Dict[str, float]:
         """
         LLM-as-a-judge 接口（预留）
         
@@ -248,7 +248,7 @@ class MetricsCalculator:
         """
         return {'factuality': 0.0, 'consistency': 0.0, 'overall': 0.0}
     
-    def visualize_metrics(self, metrics: Dict[str, float], true_labels: List[int], pred_scores: List[float]) -&gt; None:
+    def visualize_metrics(self, metrics: Dict[str, float], true_labels: List[int], pred_scores: List[float]) -> None:
         """
         可视化指标
         
@@ -257,13 +257,13 @@ class MetricsCalculator:
             true_labels: 真实标签
             pred_scores: 预测分数
         """
-        if len(set(true_labels)) &gt; 1:
+        if len(set(true_labels)) > 1:
             self._plot_roc_curve(true_labels, pred_scores)
             self._plot_precision_recall_curve(true_labels, pred_scores)
         
         self._plot_metric_bar_chart(metrics)
     
-    def _plot_roc_curve(self, true_labels: List[int], pred_scores: List[float]) -&gt; None:
+    def _plot_roc_curve(self, true_labels: List[int], pred_scores: List[float]) -> None:
         """
         绘制 ROC 曲线
         """
@@ -280,7 +280,7 @@ class MetricsCalculator:
         plt.savefig(os.path.join(self.metrics_dir, 'roc_curve.png'))
         plt.close()
     
-    def _plot_precision_recall_curve(self, true_labels: List[int], pred_scores: List[float]) -&gt; None:
+    def _plot_precision_recall_curve(self, true_labels: List[int], pred_scores: List[float]) -> None:
         """
         绘制 Precision-Recall 曲线
         """
@@ -296,7 +296,7 @@ class MetricsCalculator:
         plt.savefig(os.path.join(self.metrics_dir, 'pr_curve.png'))
         plt.close()
     
-    def _plot_metric_bar_chart(self, metrics: Dict[str, float]) -&gt; None:
+    def _plot_metric_bar_chart(self, metrics: Dict[str, float]) -> None:
         """
         绘制指标柱状图
         """
