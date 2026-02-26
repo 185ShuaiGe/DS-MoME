@@ -17,7 +17,7 @@ from utils.log_utils import Logger
 from torchvision import transforms
 
 
-def parse_args() -&gt; Namespace:
+def parse_args() -> Namespace:
     """
     解析命令行参数
 
@@ -80,7 +80,7 @@ def parse_args() -&gt; Namespace:
     return parser.parse_args()
 
 
-def main() -&gt; None:
+def main() -> None:
     """
     主函数：项目入口
     """
@@ -116,7 +116,7 @@ def train(
     model_config: ModelConfig,
     device_config: DeviceConfig,
     path_config: PathConfig
-) -&gt; None:
+) -> None:
     """
     训练模式
 
@@ -159,7 +159,7 @@ def validate(
     model_config: ModelConfig,
     device_config: DeviceConfig,
     path_config: PathConfig
-) -&gt; None:
+) -> None:
     """
     验证模式
 
@@ -197,7 +197,7 @@ def inference(
     model_config: ModelConfig,
     device_config: DeviceConfig,
     path_config: PathConfig
-) -&gt; None:
+) -> None:
     """
     推理模式
 
@@ -239,7 +239,7 @@ def _infer_single_image(
     transform: transforms.Compose,
     device: torch.device,
     logger: Logger
-) -&gt; None:
+) -> None:
     """
     推理单张图像
 
@@ -260,7 +260,7 @@ def _infer_single_image(
         logger.info("=" * 60)
         logger.info(f"Image: {os.path.basename(image_path)}")
         logger.info(f"Detection Score: {detection_score:.4f}")
-        logger.info(f"Classification: {'AI-Generated" if detection_score &gt; 0.5 else "Real")
+        logger.info(f"Classification: {'AI-Generated' if detection_score > 0.5 else 'Real'}")
         logger.info(f"Explanation: {explanation}")
         logger.info("=" * 60)
         
@@ -275,7 +275,7 @@ def _infer_batch_images(
     device: torch.device,
     logger: Logger,
     path_config: PathConfig
-) -&gt; None:
+) -> None:
     """
     批量推理图像
 
@@ -311,7 +311,7 @@ def _infer_batch_images(
                 }
                 results.append(result)
                 
-                logger.info(f"{filename}: Score={detection_score:.4f}, {'AI-Generated" if detection_score &gt; 0.5 else "Real")
+                logger.info(f"{filename}: Score={detection_score:.4f}, Classification={'AI-Generated' if detection_score > 0.5 else 'Real'}")
                 
             except Exception as e:
                 logger.warning(f"Failed to process {filename}: {e}")

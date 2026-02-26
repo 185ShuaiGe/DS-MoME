@@ -111,7 +111,7 @@ class PLAAMLLM(nn.Module):
                     prompt=text_guidance
                 )
             except:
-                explanation = "AI-generated" if confidence &gt; 0.5 else "Real"
+                explanation = "AI-generated" if confidence > 0.5 else "Real"
         
         return confidence, explanation
 

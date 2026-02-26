@@ -1,6 +1,16 @@
 # 忽略所有目录下的 __pycache__ 文件夹（包括configs、models、utils下的）
 __pycache__/
 
+#忽略数据集
+# 忽略data/holmes_dataset下的所有数据集文件（十几G内容）
+data/holmes_dataset/*
+# 反向排除.gitkeep文件（确保该文件能被追踪，从而保留holmes_dataset文件夹）
+!data/holmes_dataset/.gitkeep
+data/train/*
+data/val/*
+
+
+
 # 可选补充：忽略Python编译生成的字节码文件（和__pycache__配套，推荐添加）
 *.pyc
 *.pyo
