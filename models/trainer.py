@@ -373,28 +373,29 @@ class PLAAMLLMTrainer:
                 single_image = images[i:i+1]
                 single_prompt = text_prompts[i] if isinstance(text_prompts, (list, tuple)) else text_prompts
                 
-                if self.stage == 1:
-                    outputs = self.model(single_image, single_prompt)
-                    single_label = labels[i:i+1] if isinstance(labels, torch.Tensor) else [labels[i]]
-                    single_label_tensor = torch.tensor([single_label], device=self.device) if not isinstance(labels, torch.Tensor) else single_label
-                    
-                    mask = None
-                    if isinstance(annotation_info, dict):
-                        mask_data = annotation_info.get('mask')
-                        if isinstance(mask_data, (list, tuple)) and i < len(mask_data):
-                            mask = mask_data[i]
-                    loss_dict = self.compute_loss_stage1(outputs, single_label_tensor, mask)
-                elif self.stage == 2:
-                    single_info = {k: v[i] if isinstance(v, (list, tuple, torch.Tensor)) else v for k, v in annotation_info.items()}
-                    expert_explanation = single_info.get('expert_explanation', '')
-                    combined_text = single_prompt + " " + expert_explanation if expert_explanation else single_prompt
-                    outputs = self.model(single_image, combined_text)
-                    loss_dict = self.compute_loss_stage2(outputs, single_info, self.tokenizer, single_prompt)
-                elif self.stage == 3:
-                    single_info = {k: v[i] if isinstance(v, (list, tuple, torch.Tensor)) else v for k, v in annotation_info.items()}
-                    winner_text = single_info.get('winner', '')
-                    loser_text = single_info.get('loser', '')
-                    loss_dict = self.compute_loss_stage3(single_image, winner_text, loser_text)
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                    if self.stage == 1:
+                        outputs = self.model(single_image, single_prompt)
+                        single_label = labels[i:i+1] if isinstance(labels, torch.Tensor) else [labels[i]]
+                        single_label_tensor = torch.tensor([single_label], device=self.device) if not isinstance(labels, torch.Tensor) else single_label
+                        
+                        mask = None
+                        if isinstance(annotation_info, dict):
+                            mask_data = annotation_info.get('mask')
+                            if isinstance(mask_data, (list, tuple)) and i < len(mask_data):
+                                mask = mask_data[i]
+                        loss_dict = self.compute_loss_stage1(outputs, single_label_tensor, mask)
+                    elif self.stage == 2:
+                        single_info = {k: v[i] if isinstance(v, (list, tuple, torch.Tensor)) else v for k, v in annotation_info.items()}
+                        expert_explanation = single_info.get('expert_explanation', '')
+                        combined_text = single_prompt + " " + expert_explanation if expert_explanation else single_prompt
+                        outputs = self.model(single_image, combined_text)
+                        loss_dict = self.compute_loss_stage2(outputs, single_info, self.tokenizer, single_prompt)
+                    elif self.stage == 3:
+                        single_info = {k: v[i] if isinstance(v, (list, tuple, torch.Tensor)) else v for k, v in annotation_info.items()}
+                        winner_text = single_info.get('winner', '')
+                        loser_text = single_info.get('loser', '')
+                        loss_dict = self.compute_loss_stage3(single_image, winner_text, loser_text)
                 
                 batch_losses.append(loss_dict['total_loss'])
             
@@ -484,15 +485,27 @@ class PLAAMLLMTrainer:
             self.logger.info(f"Best checkpoint saved to {best_path}")
     
     def _load_checkpoint(self, checkpoint_path, optimizer, scheduler):
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        #先将权重加载到 CPU 上，避免 GPU 内存不足
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
         
+        #加载模型权重
         self.model.load_state_dict(checkpoint['model_state_dict'], strict=False)
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.epoch = checkpoint['epoch']
-        self.global_step = checkpoint['global_step']
-        self.best_metric = checkpoint.get('best_metric', -float('inf'))
-        
+
+        # 只有在“断点续训”相同阶段时，才加载优化器和进度。
+        # 跨阶段（如 Stage 1 到 Stage 2）不应加载过去的优化器！
+        ckpt_stage = checkpoint.get('stage', 1)
+        if ckpt_stage == self.stage:
+            try:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                self.epoch = checkpoint.get('epoch', 0)
+                self.global_step = checkpoint.get('global_step', 0)
+                self.best_metric = checkpoint.get('best_metric', -float('inf'))
+                self.logger.info(f"Resuming Stage {self.stage} training from epoch {self.epoch}, step {self.global_step}")
+            except Exception as e:
+                self.logger.warning(f"Could not load optimizer state: {e}")
+        else:
+            self.logger.info(f"Transitioning from Stage {ckpt_stage} to Stage {self.stage}. Only model weights loaded. Optimizer reset.")
+            
         self.logger.info(f"Checkpoint loaded from {checkpoint_path}")
-        self.logger.info(f"Resuming from epoch {self.epoch}, step {self.global_step}")
 

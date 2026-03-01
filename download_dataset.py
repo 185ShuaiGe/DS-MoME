@@ -20,7 +20,8 @@ try:
         repo_type="dataset",
         local_dir=local_download_dir,
         resume_download=True,  # 开启断点续传（如果中断，重新运行脚本即可）
-        max_workers=4          # 启用多线程并发下载
+        max_workers=8,          # 启用多线程并发下载
+        ignore_patterns=["TestSet.zip"]
     )
     print("\n🎉 数据集下载完成！")
 except Exception as e:

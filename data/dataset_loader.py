@@ -155,8 +155,12 @@ class AIGIDataset(Dataset):
         return image_tensor
     
     def _load_mask(self, mask_path_or_data):
+        # 1. 创建一个默认的全零 Tensor (1通道，大小为 image_size x image_size)
+        dummy_mask = torch.zeros((1, self.image_size, self.image_size))
+        
+        # 2. 如果数据为空，返回全零 Tensor 而不是 None
         if mask_path_or_data is None:
-            return None
+            return dummy_mask
         
         try:
             if isinstance(mask_path_or_data, str):
@@ -176,8 +180,8 @@ class AIGIDataset(Dataset):
             return mask_tensor
         except Exception as e:
             self.logger.warning(f"Failed to load mask: {e}")
-            return None
-    
+            # 3. 如果发生异常加载失败，也返回全零 Tensor
+            return dummy_mask   
     def _extract_annotation_info(self, sample):
         info = {
             "image_path": sample.get("image_path", ""),

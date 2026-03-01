@@ -19,7 +19,7 @@ class PLAAMLLM(nn.Module):
 
         self.dual_stream_encoder = DualStreamEncoder(model_config, device_config)
         self.forensic_cross_attention = ForensicCrossAttention(model_config, device_config)
-        self.llm_infer = LLMInference(model_config, device_config)
+        self.llm_infer = LLMInference(model_config, device_config)          #日志第一条信息：加载大语言模型
 
         self.vision_token_proj = nn.Linear(model_config.latent_dim, model_config.llm_dim)
         
@@ -36,7 +36,10 @@ class PLAAMLLM(nn.Module):
         )
 
     def forward(self, image, text_prompt, text_guidance=None):
-        semantic_features, artifact_features = self.dual_stream_encoder(image)
+        # 自动判断视觉编码器是否被冻结，若冻结则不记录梯度图，省下海量中间激活值的显存
+        visual_requires_grad = any(p.requires_grad for p in self.dual_stream_encoder.parameters())
+        with torch.set_grad_enabled(visual_requires_grad):
+            semantic_features, artifact_features = self.dual_stream_encoder(image)
         
         text_guidance_tensor = None
         if text_guidance is not None and self.llm_infer.tokenizer is not None:

@@ -19,7 +19,7 @@ class LLMInference(nn.Module):
             print(f"Loading LLM from {config.llm_model_name}...")
             self.llm_model = AutoModelForCausalLM.from_pretrained(
                 config.llm_model_name,
-                torch_dtype=torch.float16, # 建议使用半精度节省显存
+                dtype=torch.float16, # 建议使用半精度节省显存
                 device_map="auto"          # 自动分配设备
             )
         except Exception as e:

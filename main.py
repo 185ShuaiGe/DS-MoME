@@ -129,10 +129,10 @@ def train(
         device_config: 设备配置
         path_config: 路径配置
     """
-    logger.info(f"Starting training stage {args.train_stage}")
+    logger.info(f"Starting training stage {args.train_stage}")      #日志第二条信息：开始训练阶段X
 
     train_dataset = AIGIDataset(
-        path_config, model_config, stage=args.train_stage, split="train")
+        path_config, model_config, stage=args.train_stage, split="train")   #日志第三条信息：加载训练数据集
     val_dataset = AIGIDataset(
         path_config, model_config, stage=args.train_stage, split="val")
 
@@ -150,7 +150,7 @@ def train(
         learning_rate=args.lr,
         batch_size=args.batch_size,
         checkpoint_path=args.checkpoint
-    )
+    )    #日志第四条信息：开始训练
 
 
 def validate(
