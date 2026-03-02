@@ -27,7 +27,8 @@ class LLMInference(nn.Module):
             self.llm_model = AutoModelForCausalLM.from_pretrained(
                 config.llm_model_name,
                 quantization_config=quantization_config, # 使用量化配置
-                device_map={"": self.device_config.get_device()}          
+                device_map="auto",        
+                max_memory={0: "0GiB", 1: "23GiB"} #限制 GPU 0 的最大显存使用量，强制剩余部分溢出到 GPU 1 
             )
         except Exception as e:
             print(f"Error loading LLM: {e}")

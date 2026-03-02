@@ -1,6 +1,8 @@
 import os
 #PyTorch 在训练时容易产生显存碎片，开启 expandable_segments 可以缓解此问题，避免因为找不到连续大块显存而报错。
-# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["NCCL_P2P_DISABLE"] = "1"
+os.environ["NCCL_IB_DISABLE"] = "1"
 import argparse
 import torch
 from typing import Optional
@@ -110,7 +112,7 @@ def main() -> None:
     model.detection_head = model.detection_head.to(device)
     model.mask_head = model.mask_head.to(device)
     # model.llm_infer 内部的 llm_model 已经通过 device_map="auto" 分布在两张卡上了，不要动它
-    
+
     if args.checkpoint and os.path.exists(args.checkpoint):
         logger.info(f"Loading checkpoint from {args.checkpoint}")
         model.load_checkpoint(args.checkpoint)
