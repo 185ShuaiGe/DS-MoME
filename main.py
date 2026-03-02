@@ -1,7 +1,8 @@
-
+import os
+#PyTorch 在训练时容易产生显存碎片，开启 expandable_segments 可以缓解此问题，避免因为找不到连续大块显存而报错。
+# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import argparse
 import torch
-import os
 from typing import Optional
 from argparse import Namespace
 from PIL import Image
@@ -95,9 +96,21 @@ def main() -> None:
 
     model = PLAAMLLM(model_config, device_config, path_config)
 
-    device = device_config.get_device()
-    model = model.to(device)
+    # 单卡训练
+    # device = device_config.get_device()
+    # model = model.to(device)
 
+    # 多卡训练
+    device = device_config.get_device()
+    
+    # 手动将非大语言模型的模块移动到主设备 cuda:0
+    model.dual_stream_encoder = model.dual_stream_encoder.to(device)
+    model.forensic_cross_attention = model.forensic_cross_attention.to(device)
+    model.vision_token_proj = model.vision_token_proj.to(device)
+    model.detection_head = model.detection_head.to(device)
+    model.mask_head = model.mask_head.to(device)
+    # model.llm_infer 内部的 llm_model 已经通过 device_map="auto" 分布在两张卡上了，不要动它
+    
     if args.checkpoint and os.path.exists(args.checkpoint):
         logger.info(f"Loading checkpoint from {args.checkpoint}")
         model.load_checkpoint(args.checkpoint)

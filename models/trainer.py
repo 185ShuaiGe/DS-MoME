@@ -244,7 +244,7 @@ class PLAAMLLMTrainer:
                 target_mask = torch.cat([ignore_vision, target_ids], dim=1)
                 
                 shift_logits = logits[..., :-1, :].contiguous()
-                shift_labels = target_mask[..., 1:].contiguous()
+                shift_labels = target_mask[..., 1:].contiguous().to(shift_logits.device)
                 
                 clm_loss = F.cross_entropy(
                     shift_logits.view(-1, shift_logits.size(-1)),
@@ -407,6 +407,7 @@ class PLAAMLLMTrainer:
             self.global_step += 1
             
             progress_bar.set_postfix({'loss': loss.item()})
+            # torch.cuda.empty_cache()
         
         return total_loss / len(loader)
     

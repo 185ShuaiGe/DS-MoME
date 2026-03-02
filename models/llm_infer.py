@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 from typing import Optional, Dict, Any
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model
 from configs.model_config import ModelConfig
 from configs.device_config import DeviceConfig
@@ -15,12 +15,19 @@ class LLMInference(nn.Module):
         self.device_config = device_config
         # --- 修改部分：增加模型加载逻辑 ---
         try:
-            from transformers import AutoModelForCausalLM
             print(f"Loading LLM from {config.llm_model_name}...")
+            # 配置 4-bit 量化
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
+            )
+            
             self.llm_model = AutoModelForCausalLM.from_pretrained(
                 config.llm_model_name,
-                dtype=torch.float16, # 建议使用半精度节省显存
-                device_map="auto"          # 自动分配设备
+                quantization_config=quantization_config, # 使用量化配置
+                device_map={"": self.device_config.get_device()}          
             )
         except Exception as e:
             print(f"Error loading LLM: {e}")
