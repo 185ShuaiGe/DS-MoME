@@ -89,7 +89,7 @@ class PLAAMLLM(nn.Module):
                 )
                 llm_outputs.update(llm_out)
         except Exception as e:
-            pass
+            print(f"Error in LLM forward pass: {e}")
         
         return {
             'vision_tokens': projected_vision_tokens,
@@ -145,15 +145,26 @@ class PLAAMLLM(nn.Module):
         return inputs_embeds, fused_attention_mask
 
     def load_checkpoint(self, checkpoint_path):
-        try:
-            checkpoint = torch.load(checkpoint_path, map_location=self.device_config.get_device())
-            self.load_state_dict(checkpoint.get('model_state_dict', checkpoint), strict=False)
-        except Exception as e:
-            pass
+            try:
+                checkpoint = torch.load(checkpoint_path, map_location=self.device_config.get_device())
+                state_dict = checkpoint.get('model_state_dict', checkpoint)
+                
+                # 【核心修复】：在主模型加载时，同样过滤掉 LLM 的 4-bit 量化权重
+                filtered_state_dict = {
+                    k: v for k, v in state_dict.items() 
+                    if not k.startswith('llm_infer.llm_model.')
+                }
+                
+                # 加载过滤后的权重
+                self.load_state_dict(filtered_state_dict, strict=False)
+                print("Checkpoint successfully loaded (LLM weights ignored).")
+                
+            except Exception as e:
+                print(f"Error loading checkpoint in PLAAMLLM: {e}")
 
     def save_checkpoint(self, checkpoint_path):
         try:
             torch.save({'model_state_dict': self.state_dict()}, checkpoint_path)
         except Exception as e:
-            pass
+            print(f"Error saving checkpoint: {e}")
 

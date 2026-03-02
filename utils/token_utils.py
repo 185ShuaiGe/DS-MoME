@@ -119,4 +119,5 @@ class TokenUtils:
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
         except Exception as e:
-            pass
+            print(f"Error loading tokenizer: {e}")
+            self.tokenizer = None

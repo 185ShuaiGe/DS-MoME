@@ -5,6 +5,10 @@ os.environ["NCCL_P2P_DISABLE"] = "1"
 os.environ["NCCL_IB_DISABLE"] = "1"
 import argparse
 import torch
+# 提前唤醒多卡的 CUDA 上下文，消除 cuBLAS 警告
+if torch.cuda.is_available():
+    torch.tensor([0.0], device='cuda:0')
+    torch.tensor([0.0], device='cuda:1')
 from typing import Optional
 from argparse import Namespace
 from PIL import Image

@@ -26,6 +26,7 @@ class LLMInference(nn.Module):
             
             self.llm_model = AutoModelForCausalLM.from_pretrained(
                 config.llm_model_name,
+                # torch_dtype=torch.float16,
                 quantization_config=quantization_config, # 使用量化配置
                 device_map="auto",        
                 max_memory={0: "0GiB", 1: "23GiB"} #限制 GPU 0 的最大显存使用量，强制剩余部分溢出到 GPU 1 
@@ -49,7 +50,8 @@ class LLMInference(nn.Module):
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
         except Exception as e:
-            pass
+            print(f"Error loading tokenizer: {e}")
+            self.tokenizer = None
     
     def forward(
         self,
@@ -74,21 +76,34 @@ class LLMInference(nn.Module):
         if self.llm_model is None:
             return {}
         
+        # 获取 LLM 输入层当前所在的设备 (通常是 cuda:1)
+        llm_device = self.llm_model.device
+        
+        # 将文本输入转移到 LLM 所在的设备
+        input_ids = input_ids.to(llm_device)
+        attention_mask = attention_mask.to(llm_device)
+        
         inputs_embeds = None
         fused_attention_mask = attention_mask
         
         if vision_tokens is not None:
             if hasattr(self.llm_model, 'get_input_embeddings'):
                 text_embeds = self.llm_model.get_input_embeddings()(input_ids)
+                
+                # 将 vision_tokens 转移到 text_embeds 所在的同一张显卡上, 同时将float32转换为float16（如果 LLM 使用了 float16），显式对齐数据类型
+                vision_tokens = vision_tokens.to(device = text_embeds.device, dtype = text_embeds.dtype)
                 inputs_embeds = torch.cat([vision_tokens, text_embeds], dim=1)
                 
                 vision_mask = torch.ones(
                     (vision_tokens.size(0), vision_tokens.size(1)), 
                     dtype=attention_mask.dtype, 
-                    device=attention_mask.device
+                    device=text_embeds.device
                 )
-                fused_attention_mask = torch.cat([vision_mask, attention_mask], dim=1)
+                
+                # 【关键修复】确保 attention_mask 也在同一张显卡上
+                fused_attention_mask = torch.cat([vision_mask, attention_mask.to(text_embeds.device)], dim=1)
         
+        # 前向传播 (Transformers 的 device_map 会自动处理后续层之间的显卡调度)
         if inputs_embeds is not None:
             outputs = self.llm_model(
                 inputs_embeds=inputs_embeds,
@@ -259,4 +274,4 @@ class LLMInference(nn.Module):
             try:
                 self.llm_model = get_peft_model(self.llm_model, self.lora_config)
             except Exception as e:
-                pass
+                print(f"Error applying LoRA: {e}")
