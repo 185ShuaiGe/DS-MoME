@@ -76,13 +76,13 @@ def parse_args() -> Namespace:
     parser.add_argument(
         "--num_epochs", 
         type=int, 
-        default=3, 
+        default=10, 
         help="训练轮数"
     )
     parser.add_argument(
         "--lr", 
         type=float, 
-        default=1e-5, 
+        default=1e-4, 
         help="学习率"
     )
     

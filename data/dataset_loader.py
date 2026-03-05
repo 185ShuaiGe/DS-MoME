@@ -37,7 +37,7 @@ class AIGIDataset(Dataset):
         self.logger = Logger(name=f"AIGIDataset_{split}_stage{stage}")
         
         self.data_dir = os.path.join(path_config.data_dir, split)
-        self.annotation_file = os.path.join(self.data_dir, "annotations_unified.json")
+        self.annotation_file = os.path.join(self.data_dir, "annotations_cleaned.json")
         
         self.samples = self._load_annotations()
         self.transform = self._build_transform()
@@ -131,11 +131,8 @@ class AIGIDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.samples[idx]
         
-        try:
-            image = self._load_image(sample.get("image_path", ""))
-        except Exception as e:
-            self.logger.error(f"Failed to load image at index {idx}: {e}")
-            image = torch.zeros(3, self.image_size, self.image_size)
+        # 直接加载图片，如果找不到文件，让程序直接崩溃退出！
+        image = self._load_image(sample.get("image_path", ""))
         
         label = sample.get("label", 0)
         annotation_info = self._extract_annotation_info(sample)
@@ -146,11 +143,11 @@ class AIGIDataset(Dataset):
     def _load_image(self, image_path):
         full_path = os.path.join(self.data_dir, image_path)
         
-        if os.path.exists(full_path):
-            image = Image.open(full_path).convert("RGB")
-        else:
-            image = Image.fromarray(np.uint8(np.random.randint(0, 255, (256, 256, 3))))
-        
+        if not os.path.exists(full_path):
+            # 抛出明确的异常，让你知道哪里的路径错了，而不是塞入随机图片
+            raise FileNotFoundError(f"Image not found at: {os.path.abspath(full_path)}")
+            
+        image = Image.open(full_path).convert("RGB")
         image_tensor = self.transform(image)
         return image_tensor
     
@@ -182,6 +179,7 @@ class AIGIDataset(Dataset):
             self.logger.warning(f"Failed to load mask: {e}")
             # 3. 如果发生异常加载失败，也返回全零 Tensor
             return dummy_mask   
+        
     def _extract_annotation_info(self, sample):
         info = {
             "image_path": sample.get("image_path", ""),
@@ -208,9 +206,9 @@ class AIGIDataset(Dataset):
     
     def _get_text_prompt(self, sample):
         if self.stage == 1:
-            return "Classify this image as real or AI-generated."
+            return "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning."
         elif self.stage == 2:
-            return sample.get("text_query", "Analyze this image.")
+            return "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning."
         else:
             return sample.get("text_query", "Which answer is better?")
 
