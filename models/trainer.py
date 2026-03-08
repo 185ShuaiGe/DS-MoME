@@ -217,6 +217,8 @@ class PLAAMLLMTrainer:
             expert_text = labels.get('expert_explanation', '')
             if tokenizer is not None and expert_text:
                 if single_prompt is not None:
+                    if isinstance(expert_text, (list, tuple)):
+                        expert_text = expert_text[0]
                     full_text = single_prompt + " " + expert_text
                 else:
                     full_text = expert_text
@@ -441,8 +443,29 @@ class PLAAMLLMTrainer:
                     # =========================================================
                     
                 elif self.stage == 2:
-                    # ... 针对 Stage 2 的逻辑保持原样（未来做 Stage2 时再优化）...
-                    loss_dict = {'total_loss': torch.tensor(0.0, device=self.device, requires_grad=True)}
+                    # 1. 提取单条 prompt
+                    single_prompt = text_prompts[0] if isinstance(text_prompts, (list, tuple)) else text_prompts
+                    
+                    # 2. 提取专家解释文本 (请确保 'explanation' 是你 annotation_info 里存答案的 key)
+                    expert_text = annotation_info.get('expert_explanation', '') # 如果你的 key 叫 'text' 或其他，请修改这里
+                    if isinstance(expert_text, (list, tuple)):
+                        expert_text = expert_text[0]
+                        
+                    # 3. 拼接完整的 Prompt + Answer
+                    full_text = single_prompt + " " + expert_text
+                    
+                    # 4. 【核心修复】将 full_text 传入模型！
+                    # 必须传入完整文本，这样模型输出的 logits 长度才会和后面的 labels 长度(如 507)完全对齐
+                    # 保持和原先 text_prompts 一致的数据类型（放到 list 中）
+                    outputs = self.model(images, [full_text]) 
+                    
+                    # 5. 计算损失
+                    loss_dict = self.compute_loss_stage2(
+                        outputs=outputs, 
+                        labels=annotation_info, 
+                        tokenizer=self.tokenizer,
+                        single_prompt=single_prompt
+                    )
                 else:
                     loss_dict = {'total_loss': torch.tensor(0.0, device=self.device, requires_grad=True)}
             
@@ -510,9 +533,35 @@ class PLAAMLLMTrainer:
                         loss_dict = self.compute_loss_stage1(outputs, labels_tensor, masks)
                         loss = loss_dict['total_loss']
                         total_loss += loss.item()
+                    elif self.stage == 2:
+                        # 1. 提取单条 prompt
+                        single_prompt = text_prompts[0] if isinstance(text_prompts, (list, tuple)) else text_prompts
+                        
+                        # 2. 提取专家解释文本 (请确保 'explanation' 是你 annotation_info 里存答案的 key)
+                        expert_text = annotation_info.get('expert_explanation', '') # 如果你的 key 叫 'text' 或其他，请修改这里
+                        if isinstance(expert_text, (list, tuple)):
+                            expert_text = expert_text[0]
+                            
+                        # 3. 拼接完整的 Prompt + Answer
+                        full_text = single_prompt + " " + expert_text
+                        
+                        # 4. 【核心修复】将 full_text 传入模型！
+                        # 必须传入完整文本，这样模型输出的 logits 长度才会和后面的 labels 长度(如 507)完全对齐
+                        # 保持和原先 text_prompts 一致的数据类型（放到 list 中）
+                        outputs = self.model(images, [full_text]) 
+                        
+                        # 5. 计算损失
+                        loss_dict = self.compute_loss_stage2(
+                            outputs=outputs, 
+                            labels=annotation_info, 
+                            tokenizer=self.tokenizer,
+                            single_prompt=single_prompt
+                        )
+                        loss = loss_dict['total_loss']
+                        total_loss += loss.item()
+                        # =========================================================
                     else:
-                        # Stage 2/3 暂时略过
-                        pass
+                        print("Stage 3 validation not implemented yet.")
                 # =======================================================================
                     
         return total_loss / len(loader), all_true_labels, all_pred_scores 

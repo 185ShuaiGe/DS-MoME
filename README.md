@@ -105,7 +105,7 @@ python main.py --mode train --train_stage 3 --batch_size 2 --num_epochs 3 --lr 1
 python main.py --mode train --train_stage 1 --batch_size 8 --num_epochs 10
 
 # 阶段 2（加载阶段 1 最优模型）
-python main.py --mode train --train_stage 2 --batch_size 4 --num_epochs 5 --checkpoint weights/checkpoint_stage1_best.pt
+python main.py --mode train --train_stage 2 --batch_size 1 --num_epochs 5 --checkpoint weights/checkpoint_stage1_best.pt
 
 # 阶段 3（加载阶段 2 最优模型）
 python main.py --mode train --train_stage 3 --batch_size 2 --num_epochs 3 --checkpoint weights/checkpoint_stage2_best.pt

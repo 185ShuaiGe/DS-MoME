@@ -145,26 +145,26 @@ def main() -> None:
         model.load_checkpoint(args.checkpoint)
 
         # ==================== 终极诊断与强制加载代码 ====================
+# ==================== 终极诊断与强制加载代码 ====================
         print("\n" + "="*60)
         print("🔍 开始强制诊断与提取 LoRA 权重...")
         
         if len(lora_weights) > 0:
-            #强行将这部分参数灌入当前模型
             res = model.load_state_dict(lora_weights, strict=False)
             missing_lora = [k for k in res.missing_keys if 'lora' in k]
             print(f"2. 强制挂载执行完毕。未能成功对齐的 LoRA 参数数量: {len(missing_lora)}")
-            
-            # 核心验伤：检查 LoRA B 矩阵
-            # 原理：LoRA 训练前，B矩阵默认全为0。如果这里求和为0，说明你第二阶段训练根本没更新参数！
             lora_b_sum = sum(p.abs().sum().item() for n, p in model.named_parameters() if 'lora_B' in n)
             print(f"3. 当前模型中 LoRA_B 的权重绝对值之和为: {lora_b_sum}")
-            
             if lora_b_sum == 0.0:
                 print("🚨 致命异常：LoRA_B 权重全为 0！说明你第二阶段训练时代码有 Bug，梯度根本没传给 LoRA！")
             else:
                 print("✅ LoRA 权重已成功激活并生效！")
         else:
-            print("🚨 致命异常：权重文件中根本不存在任何 LoRA 权重！(可能是保存时没用 peft 的机制)")
+            # 增加条件判断，防止从阶段1启动阶段2时误报
+            if args.mode == 'train' and args.train_stage == 2:
+                print("✅ 正常现象：正在从 Stage 1 检查点启动 Stage 2 训练，模型将自动初始化全新的 LoRA 权重。")
+            else:
+                print("🚨 警告：权重文件中不存在 LoRA 权重！(如果是推理阶段，请检查 checkpoint 是否正确)")
         print("="*60 + "\n")
         # ================================================================
 
