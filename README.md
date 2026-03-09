@@ -124,13 +124,13 @@ python main.py --mode val --checkpoint weights/checkpoint_stage3_best.pt --batch
 ### 单张图像推理
 
 ```bash
-python main.py --mode inference --image_path /path/to/test_image.jpg --checkpoint weights/checkpoint_stage3_best.pt
+python main.py --mode inference --image_path /path/to/test_image.jpg --checkpoint weights/checkpoint_stage2_best.pt
 ```
 
 ### 批量图像推理
 
 ```bash
-python main.py --mode inference --image_dir /path/to/image_folder --checkpoint weights/checkpoint_stage3_best.pt
+python main.py --mode inference --image_dir /path/to/image_folder --checkpoint weights/checkpoint_stage2_best.pt
 ```
 
 批量推理结果将保存到 `outputs/inference_results.json`

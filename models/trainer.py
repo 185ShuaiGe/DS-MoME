@@ -49,7 +49,7 @@ class PLAAMLLMTrainer:
         self.device_manager = DeviceManager(device_config)
         self.device = device_config.get_device()
 
-        self.metrics_calculator = MetricsCalculator(path_config)
+        self.metrics_calculator = MetricsCalculator(path_config, mode='train', stage=self.stage)
         
         self.tokenizer = None
         self._init_tokenizer()
@@ -400,12 +400,12 @@ class PLAAMLLMTrainer:
             
         # ==================== 【利用 metrics_utils 生成可视化】 ====================
         self.logger.info("Training completed. Generating all visualizations...")
-        # 1. 生成 Loss 和 AUC 的变化曲线图
-        if self.stage == 1:
-            self.metrics_calculator.plot_training_history(history)
+        
+        # 1. 生成 Loss (和可能存在的 AUC) 的变化曲线图，Stage 2 也能正常出图
+        self.metrics_calculator.plot_training_history(history, stage=self.stage)
             
-        # 2. 利用已有函数生成最后一轮的 ROC 曲线、PR 曲线和柱状图
-        if last_true_labels and last_pred_scores:
+        # 2. 仅在 Stage 1 存在分类指标数据时，才生成分类评估特定图表
+        if self.stage == 1 and last_true_labels and last_pred_scores:
             self.metrics_calculator.visualize_metrics(last_metrics, last_true_labels, last_pred_scores)
         # =========================================================================
         
@@ -413,53 +413,36 @@ class PLAAMLLMTrainer:
 
     def _train_epoch(self, loader, optimizer):
         self.model.train()
-
         total_loss = 0.0
         
-        progress_bar = tqdm(loader, desc=f"Training Stage {self.stage}")
+        # 【新增】设置梯度累加步数。相当于将真实的 Batch Size 放大 8 倍
+        # 这将消除 batch_size=1 带来的极端梯度噪音
+        accum_steps = getattr(self.model_config, 'grad_accum_steps', 8) 
         
-        for batch in progress_bar:
+        progress_bar = tqdm(loader, desc=f"Training Stage {self.stage}")
+        optimizer.zero_grad() # 【修改】将清空梯度移到循环外
+        
+        for i, batch in enumerate(progress_bar):
             images, labels, annotation_info, text_prompts = batch
             images = images.to(self.device)
-            # 确保 labels 是浮点型 Tensor
             labels_tensor = labels.to(self.device).float() if isinstance(labels, torch.Tensor) else torch.tensor(labels, device=self.device).float()
-            
-            optimizer.zero_grad()
             
             with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
                 if self.stage == 1:
-                    # ==================== 【核心修复 1】 ====================
-                    # 直接输入整个 Batch，废弃 for 循环，让 BatchNorm 正常工作！
-                    # 同时传入 text_guidance 给交叉注意力机制
                     outputs = self.model(images, text_prompts, text_guidance=text_prompts)
-                    logits = outputs.get('detection_logits')
-                    # print(f"Logits Mean: {logits.mean().item():.4f}, Std: {logits.std().item():.4f}")
-                    
                     masks = annotation_info.get('mask') if isinstance(annotation_info, dict) else None
                     if masks is not None and isinstance(masks, torch.Tensor):
                         masks = masks.to(self.device)
-                        
                     loss_dict = self.compute_loss_stage1(outputs, labels_tensor, masks)
-                    # =========================================================
                     
                 elif self.stage == 2:
-                    # 1. 提取单条 prompt
                     single_prompt = text_prompts[0] if isinstance(text_prompts, (list, tuple)) else text_prompts
-                    
-                    # 2. 提取专家解释文本 (请确保 'explanation' 是你 annotation_info 里存答案的 key)
-                    expert_text = annotation_info.get('expert_explanation', '') # 如果你的 key 叫 'text' 或其他，请修改这里
+                    expert_text = annotation_info.get('expert_explanation', '')
                     if isinstance(expert_text, (list, tuple)):
                         expert_text = expert_text[0]
-                        
-                    # 3. 拼接完整的 Prompt + Answer
                     full_text = single_prompt + " " + expert_text
                     
-                    # 4. 【核心修复】将 full_text 传入模型！
-                    # 必须传入完整文本，这样模型输出的 logits 长度才会和后面的 labels 长度(如 507)完全对齐
-                    # 保持和原先 text_prompts 一致的数据类型（放到 list 中）
                     outputs = self.model(images, [full_text]) 
-                    
-                    # 5. 计算损失
                     loss_dict = self.compute_loss_stage2(
                         outputs=outputs, 
                         labels=annotation_info, 
@@ -471,30 +454,24 @@ class PLAAMLLMTrainer:
             
             loss = loss_dict['total_loss']
 
-            #标准的FP32训练步骤：
+            # 【新增】将 loss 根据累加步数进行缩放
+            loss = loss / accum_steps
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            optimizer.step()
 
-            #混合精度训练步骤：
-            # 使用 scaler 放大 loss 并反向传播
-            # self.scaler.scale(loss).backward()
-
-            # # 梯度裁剪前需要先 unscale，否则裁剪的数值范围是错的
-            # self.scaler.unscale_(optimizer)
-            # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-
-            # # 使用 scaler 执行优化器并更新 scale
-            # self.scaler.step(optimizer)
-            # self.scaler.update()
-
-            optimizer.zero_grad()
+            # 【新增】当达到累加步数，或者到了最后一个 batch 时，更新参数
+            if (i + 1) % accum_steps == 0 or (i + 1) == len(loader):
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                optimizer.step()
+                optimizer.zero_grad()
             
-            total_loss += loss.item()
+            # 【修改】记录还原后的真实 loss
+            actual_loss = loss.item() * accum_steps
+            total_loss += actual_loss
             self.global_step += 1
-            progress_bar.set_postfix({'loss': loss.item()})
+            progress_bar.set_postfix({'loss': f"{actual_loss:.4f}"})
             
         return total_loss / len(loader)
+    
 
     def _validate_epoch(self, loader):
         self.model.eval()

@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 #PyTorch 在训练时容易产生显存碎片，开启 expandable_segments 可以缓解此问题，避免因为找不到连续大块显存而报错。
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["NCCL_P2P_DISABLE"] = "1"
@@ -99,7 +100,27 @@ def main() -> None:
     device_config = DeviceConfig()
     path_config = PathConfig()
 
-    logger = Logger(name="PLAA_MLLM_Main", log_dir=path_config.logs_dir)
+    if args.mode == 'inference':
+        # 判断是单张图推理还是批量推理
+        inf_type = 'single' if args.image_path else 'batch'
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        folder_name = f"inference_{inf_type}_{current_time}"
+        
+        # 将路径指向 outputs 目录下的新文件夹
+        custom_out_dir = os.path.join(path_config.outputs_dir, folder_name)
+        os.makedirs(custom_out_dir, exist_ok=True)
+        
+        # 指定 Logger 使用这个新文件夹
+        log_dir_to_use = custom_out_dir
+        
+        # 顺便把 outputs_dir 覆写，这样后续生成的 inference_results.json 也会存到这里
+        path_config.outputs_dir = custom_out_dir
+    else:
+        # 训练和验证模式保持使用默认的 logs 目录
+        log_dir_to_use = path_config.logs_dir
+
+    # 使用动态决定的路径初始化主 Logger
+    logger = Logger(name="PLAA_MLLM_Main", log_dir=log_dir_to_use)
 
     # 1. 实例化基础模型
     model = PLAAMLLM(model_config, device_config, path_config)
@@ -145,7 +166,6 @@ def main() -> None:
         model.load_checkpoint(args.checkpoint)
 
         # ==================== 终极诊断与强制加载代码 ====================
-# ==================== 终极诊断与强制加载代码 ====================
         print("\n" + "="*60)
         print("🔍 开始强制诊断与提取 LoRA 权重...")
         
@@ -256,14 +276,15 @@ def validate(
     validator = PLAAMLLMValidator(model, model_config, device_config, path_config)
     results = validator.validate(val_loader, save_results=True)
 
-    metrics_calculator = MetricsCalculator(path_config)
-    true_labels = results.get('true_labels', [])
-    pred_scores = results.get('pred_scores', [])
+    #已经在validator中计算了指标，无需重复计算
+    # metrics_calculator = MetricsCalculator(path_config)
+    # true_labels = results.get('true_labels', [])
+    # pred_scores = results.get('pred_scores', [])
     
-    if true_labels and pred_scores:
-        metrics = metrics_calculator.calculate_all_metrics(true_labels, pred_scores)
-        logger.info(f"Validation Metrics: {metrics}")
-        metrics_calculator.visualize_metrics(metrics, true_labels, pred_scores)
+    # if true_labels and pred_scores:
+    #     metrics = metrics_calculator.calculate_all_metrics(true_labels, pred_scores)
+    #     logger.info(f"Validation Metrics: {metrics}")
+    #     metrics_calculator.visualize_metrics(metrics, true_labels, pred_scores)
 
 
 def inference(

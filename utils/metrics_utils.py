@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import matplotlib
+from datetime import datetime
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple, Any
@@ -15,17 +16,28 @@ class MetricsCalculator:
     多维度指标计算器
     """
     
-    def __init__(self, path_config: PathConfig):
+    def __init__(self, path_config: PathConfig, mode: str = 'train', stage: int = None):
         """
         初始化指标计算器
         
         Args:
             path_config: 路径配置
+            mode: 运行模式 ('train' 或 'val')
+            stage: 训练阶段 (1 或 2，仅在 mode='train' 时有效)
         """
         self.path_config = path_config
         self.logger = Logger(name="MetricsCalculator")
         
-        self.metrics_dir = os.path.join(path_config.outputs_dir, "metrics")
+        # 获取当前时间
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # 根据 mode 和 stage 动态拼接文件夹名称
+        if mode == 'train' and stage is not None:
+            folder_name = f"{mode}_stage{stage}_{current_time}_metrics"
+        else:
+            folder_name = f"{mode}_{current_time}_metrics"
+            
+        self.metrics_dir = os.path.join(path_config.outputs_dir, folder_name)
         os.makedirs(self.metrics_dir, exist_ok=True)
     
     def calculate_all_metrics(
@@ -318,35 +330,40 @@ class MetricsCalculator:
         plt.savefig(os.path.join(self.metrics_dir, 'metrics_bar_chart.png'))
         plt.close()
 
-    def plot_training_history(self, history: Dict[str, List[float]]) -> None:
+    def plot_training_history(self, history: Dict[str, List[float]], stage: int = 1) -> None:
         """
         绘制训练损失和验证指标随 Epoch 变化的曲线
         
         Args:
             history: 包含 'train_loss', 'val_loss', 'val_auc' 等列表的字典
+            stage: 当前训练阶段，用于完善图表标题
         """
         if not history or not history.get('train_loss'):
             return
             
         epochs = range(1, len(history['train_loss']) + 1)
-        plt.figure(figsize=(12, 5))
         
-        # 绘制 Loss 曲线
-        plt.subplot(1, 2, 1)
-        plt.plot(epochs, history['train_loss'], label='Train Loss', marker='o')
+        # 判断是否包含有效（非全0）的 AUC 数据
+        has_auc = 'val_auc' in history and any(v > 0.0 for v in history['val_auc'])
+        
+        plt.figure(figsize=(12 if has_auc else 8, 5))
+        
+        # 绘制 Loss 曲线 (Stage 1 和 Stage 2 共有)
+        plt.subplot(1, 2 if has_auc else 1, 1)
+        plt.plot(epochs, history['train_loss'], label='Train Loss', marker='o', linewidth=2)
         if 'val_loss' in history and history['val_loss']:
-            plt.plot(epochs, history['val_loss'], label='Validation Loss', marker='s')
-        plt.title('Loss over Epochs')
+            plt.plot(epochs, history['val_loss'], label='Validation Loss', marker='s', linewidth=2)
+        plt.title(f'Stage {stage} Loss over Epochs')
         plt.xlabel('Epoch')
-        plt.ylabel('Loss')
+        plt.ylabel('Loss (Cross Entropy)' if stage == 2 else 'Loss')
         plt.xticks(epochs)
         plt.grid(True, linestyle='--', alpha=0.6)
         plt.legend()
         
-        # 绘制 AUC 曲线
-        plt.subplot(1, 2, 2)
-        if 'val_auc' in history and history['val_auc']:
-            plt.plot(epochs, history['val_auc'], label='Validation AUC', marker='^', color='green')
+        # 绘制 AUC 曲线 (仅当有效数据存在时)
+        if has_auc:
+            plt.subplot(1, 2, 2)
+            plt.plot(epochs, history['val_auc'], label='Validation AUC', marker='^', color='green', linewidth=2)
             plt.title('Validation AUC over Epochs')
             plt.xlabel('Epoch')
             plt.ylabel('AUC Score')
@@ -355,7 +372,7 @@ class MetricsCalculator:
             plt.legend()
             
         plt.tight_layout()
-        save_path = os.path.join(self.metrics_dir, 'training_history_curve.png')
+        save_path = os.path.join(self.metrics_dir, f'training_history_stage{stage}.png')
         plt.savefig(save_path)
         plt.close()
         self.logger.info(f"Training history curve saved to {save_path}")

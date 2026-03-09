@@ -119,13 +119,24 @@ class PLAAMLLM(nn.Module):
             detection_logits = outputs.get('detection_logits')
             confidence = torch.sigmoid(detection_logits).item() if detection_logits is not None else 0.5
             
+            # 动态构建引导 LLM 的 Prompt
+            is_fake = confidence > 0.5
+            label_str = "AI-generated" if is_fake else "Real"
+            
+            if text_guidance is None:
+                # 显式告知 LLM 分类结果，要求其提供相应的视觉特征解释
+                prompt = f"The detection system has classified this image as {label_str} with a confidence score of {confidence:.4f}. Please explain the visual artifacts or reasons that support this classification."
+            else:
+                prompt = text_guidance
+                
             try:
                 explanation = self.llm_infer.generate_explanation(
                     image_features=projected_vision_tokens, 
                     detection_score=confidence, 
-                    prompt=text_guidance
+                    prompt=prompt
                 )
-            except:
+            except Exception as e:
+                print(f"Explanation Generation Error: {e}")
                 explanation = "AI-generated" if confidence > 0.5 else "Real"
         
         return confidence, explanation

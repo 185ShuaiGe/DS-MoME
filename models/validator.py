@@ -1,4 +1,3 @@
-
 import os
 import json
 import torch
@@ -11,6 +10,9 @@ from configs.path_config import PathConfig
 from models.plaa_mllm import PLAAMLLM
 from data.dataset_loader import AIGIDataset
 from utils.log_utils import Logger
+
+# 【新增】：导入 MetricsCalculator
+from utils.metrics_utils import MetricsCalculator
 
 
 class PLAAMLLMValidator:
@@ -41,6 +43,12 @@ class PLAAMLLMValidator:
         
         self.logger = Logger(name="Validator")
         self.device = device_config.get_device()
+        
+        # 【新增】：实例化 MetricsCalculator，传入 mode='val'
+        self.metrics_calculator = MetricsCalculator(
+            path_config=path_config, 
+            mode='val'
+        )
         
         self.results = []
     
@@ -87,10 +95,33 @@ class PLAAMLLMValidator:
                     result = self._validate_single(single_image, single_label, single_info, single_prompt)
                     self.results.append(result)
         
-        # if save_results:
-        #     self._save_results(output_dir)
+        # 获取基础的汇总结果 (真实标签和预测分数)
+        aggregated_results = self._aggregate_results()
         
-        return self._aggregate_results()
+        # ==================== 【新增】：计算指标并生成可视化 ====================
+        true_labels = aggregated_results.get('true_labels', [])
+        pred_scores = aggregated_results.get('pred_scores', [])
+        
+        if true_labels and pred_scores:
+            self.logger.info("Validation completed. Calculating metrics and generating visualizations...")
+            
+            # 计算各项指标 (AUC, ACC, F1等)
+            metrics = self.metrics_calculator.calculate_detection_metrics(true_labels, pred_scores)
+            
+            # 将评估指标合并到总结果字典中
+            aggregated_results['metrics'] = metrics
+            
+            # 绘制验证过程中的可视化图表并保存
+            self.metrics_calculator.visualize_metrics(metrics, true_labels, pred_scores)
+            
+            self.logger.info(f"Validation Metrics computed: {metrics}")
+        # =========================================================================
+
+        # 如果需要保存详细的推理结果 json 文件，您可以取消下面这两行的注释
+        if save_results:
+            self._save_results(output_dir)
+        
+        return aggregated_results
     
     def _validate_single(
         self,
@@ -101,15 +132,6 @@ class PLAAMLLMValidator:
     ) -> Dict[str, Any]:
         """
         验证单个样本
-        
-        Args:
-            image: 输入图像
-            label: 真实标签
-            annotation_info: 标注信息
-            text_prompt: 文本提示
-        
-        Returns:
-            Dict: 单个样本验证结果
         """
         outputs = self.model(image, text_prompt)
         
@@ -138,9 +160,6 @@ class PLAAMLLMValidator:
     def _aggregate_results(self) -> Dict[str, Any]:
         """
         汇总验证结果
-        
-        Returns:
-            Dict: 汇总结果
         """
         if not self.results:
             return {}
@@ -160,9 +179,6 @@ class PLAAMLLMValidator:
     def _save_results(self, output_dir: str) -> None:
         """
         保存验证结果为 JSON
-        
-        Args:
-            output_dir: 输出目录
         """
         output_file = os.path.join(output_dir, 'validation_results.json')
         

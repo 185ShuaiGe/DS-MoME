@@ -23,8 +23,9 @@ class ModelConfig:
     
     llm_dim = 4096
     use_text_guidance = True
-    lora_rank = 8
-    lora_alpha = 32
+    lora_rank = 32
+    lora_alpha = 64
+    grad_accum_steps = 8
     max_seq_len = 512
     hidden_dim = 1024
     dropout = 0.1
