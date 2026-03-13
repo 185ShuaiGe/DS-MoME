@@ -14,10 +14,10 @@ PLAA-MLLM_AIGI_Detection/
 │   └── path_config.py    # 路径配置
 ├── models/               # 核心模型架构目录
 │   ├── dual_stream_encoder.py    # 双流多尺度视觉特征提取模块
-│   ├── forensic_cross_attention.py  # 取证感知交叉注意力适配器
+│   ├── mome_fusion.py            # 视觉驱动的动态专家混合融合网络
 │   ├── llm_infer.py       # LLM 推理核心
 │   ├── plaa_mllm.py       # PLAA-MLLM 整体组装
-│   ├── trainer.py         # 三阶段训练器
+│   ├── trainer.py         # 两阶段训练器
 │   └── validator.py       # 模型验证器
 ├── utils/                # 工具类目录
 │   ├── device_utils.py   # 设备管理工具
@@ -26,6 +26,7 @@ PLAA-MLLM_AIGI_Detection/
 │   └── metrics_utils.py  # 多维度指标计算器
 ├── data/                 # 数据集目录
 │   ├── dataset_loader.py # 数据集加载器
+│   ├── holmes_dataset/   # Holmes 数据集
 │   ├── train/            # 训练集
 │   ├── val/              # 验证集
 │   └── test/             # 测试集
@@ -43,7 +44,7 @@ PLAA-MLLM_AIGI_Detection/
 2. **configs/** - 所有配置文件被其他模块导入使用
 3. **models/plaa_mllm.py** - 核心组装类，整合三个主要模块：
    - `dual_stream_encoder.py` - 双流编码器
-   - `forensic_cross_attention.py` - 交叉注意力适配器
+   - `mome_fusion.py` - 视觉驱动的动态专家混合融合网络
    - `llm_infer.py` - LLM 推理
 4. **utils/** - 工具类被各模块按需调用
 
@@ -76,45 +77,26 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-### 三阶段训练
+### 两阶段训练
 
 #### 单阶段训练
 
-**阶段 1：冻结 CLIP/LLM，训练伪影流 + 适配器**
+**阶段 1：特征对齐与路由预训练**
 
 ```bash
 python main.py --mode train --train_stage 1 --batch_size 8 --num_epochs 10 --lr 1e-4
 ```
 
-**阶段 2：LoRA 微调 LLM**
+**阶段 2：基于专家解释的深度指令微调**
 
 ```bash
-python main.py --mode train --train_stage 2 --batch_size 4 --num_epochs 5 --lr 5e-5 --checkpoint weights/checkpoint_stage1_best.pt
-```
-
-**阶段 3：DPO 偏好优化**
-
-```bash
-python main.py --mode train --train_stage 3 --batch_size 2 --num_epochs 3 --lr 1e-5 --checkpoint weights/checkpoint_stage2_best.pt
-```
-
-#### 连续训练（三阶段连贯执行）
-
-```bash
-# 阶段 1
-python main.py --mode train --train_stage 1 --batch_size 8 --num_epochs 10
-
-# 阶段 2（加载阶段 1 最优模型）
-python main.py --mode train --train_stage 2 --batch_size 1 --num_epochs 5 --checkpoint weights/checkpoint_stage1_best.pt
-
-# 阶段 3（加载阶段 2 最优模型）
-python main.py --mode train --train_stage 3 --batch_size 2 --num_epochs 3 --checkpoint weights/checkpoint_stage2_best.pt
+python main.py --mode train --train_stage 2 --batch_size 1 --num_epochs 5 --lr 5e-5 --checkpoint weights/checkpoint_stage1_best.pt
 ```
 
 ### 模型验证
 
 ```bash
-python main.py --mode val --checkpoint weights/checkpoint_stage3_best.pt --batch_size 8
+python main.py --mode val --checkpoint weights/checkpoint_stage2_best.pt --batch_size 8
 ```
 
 验证结果将保存到：
@@ -150,23 +132,18 @@ python main.py --mode inference --image_dir /path/to/image_folder --checkpoint w
 
 ## 训练阶段说明
 
-### 阶段 1：基础感知训练
+### 阶段 1：特征对齐与路由预训练
 - 冻结：CLIP 语义流、LLM 主干
-- 训练：伪影流、交叉注意力适配器
-- 损失：BCE Loss（检测）+ DICE Loss（定位）
-- 目标：学习底层伪影特征
+- 训练：浅层 CNN 伪影流、MoME 融合网络
+- 损失：BCE Loss（检测）+ DICE Loss（定位）+ CLM Loss（文本对齐）
+- 目标：让视觉特征学会翻译成 LLM 能理解的语言
 
-### 阶段 2：SFT 对齐训练
-- 冻结：所有视觉流
-- 训练：交叉注意力适配器、LLM LoRA
-- 损失：因果语言建模损失 (CLM Loss)
+### 阶段 2：基于专家解释的深度指令微调
+- 冻结：CLIP 语义流
+- 训练：LLM LoRA、极简浅层 CNN 伪影流、MoME 融合网络
+- 损失：加权交叉熵损失（对关键取证维度赋予更高权重）
 - LoRA 配置：rank=64, alpha=32
-- 目标：对齐视觉特征与 LLM
-
-### 阶段 3：DPO 偏好优化
-- 训练：全参数（或保持 LoRA）
-- 损失：DPO Loss
-- 目标：优化生成偏好，提高解释质量
+- 目标：深化 LLM 对多维度取证维度的逻辑推理能力
 
 ## 评估指标
 
@@ -194,23 +171,26 @@ python main.py --mode inference --image_dir /path/to/image_folder --checkpoint w
 
 ### 1. 双流多尺度视觉特征提取模块
 - **语义流 (Semantic Stream)**: 使用 CLIP (ViT-L/14) 提取语义特征，支持提取中间层特征
-- **底层伪影流 (Artifact Stream)**: 使用 ResNet + FPN 结构提取伪影特征
+- **底层伪影流 (Artifact Stream)**: 使用固定的 SRM 高通滤波器组 + 极浅层轻量级 CNN 提取伪影特征
+  - SRM 滤波器：固定权重，强行剥离宏观语义，生成纯粹的噪声残差图
+  - 极浅层 CNN：仅 4 层，提取高频统计特征
 
-### 2. 取证感知交叉注意力适配器
-- 使用隐式查询向量 (Latent Queries) 进行特征对齐
-- 基于 Perceiver Resampler 实现交叉注意力计算
-- 支持文本引导的动态特征提取
+### 2. 视觉驱动的动态专家混合融合网络 (MoME)
+- 构建专家池：语义几何专家、底层纹理专家、综合光影专家
+- 动态软路由门控网络：根据图像特征自动分配专家权重
+- 输出 Visual Forensic Tokens 作为 Soft Prompt 注入 LLM
+- 纯视觉驱动，无需文本引导
 
 ### 3. LLM 推理核心
 - 采用早期融合策略拼接视觉和文本令牌
-- 预留 LoRA 注入接口用于参数高效微调
+- 集成 LoRA 注入接口用于参数高效微调
 - 支持自然语言解释生成
 
-### 4. 三阶段训练器
-- 支持三个训练阶段的灵活切换
+### 4. 两阶段训练器
+- 支持两个训练阶段的灵活切换
 - 实现断点续训功能
 - 自动保存最优模型
-- 集成 TensorBoard 日志记录
+- 集成指标可视化
 
 ### 5. 多维度指标计算器
 - 计算检测、定位、文本多维度指标

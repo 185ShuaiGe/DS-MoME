@@ -101,7 +101,7 @@ class PLAAMLLM(nn.Module):
         self.eval()
         with torch.no_grad():
             # ======== 【核心修复 1】：加入与训练时完全相同的 bfloat16 混合精度 ========
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
                 outputs = self.forward(image, "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning.", text_guidance)
                 
                 projected_vision_tokens = outputs.get('vision_tokens')

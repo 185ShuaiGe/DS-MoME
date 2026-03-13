@@ -95,7 +95,7 @@ class AIGIDataset(Dataset):
             transform_list.extend([
                 transforms.RandomResizedCrop(self.image_size, scale=(0.8, 1.0)),
                 transforms.RandomHorizontalFlip(p=0.5),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)
+                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
             ])
         else:
             transform_list.append(transforms.Resize((self.image_size, self.image_size)))

@@ -26,6 +26,6 @@ class ModelConfig:
     lora_rank = 32
     lora_alpha = 64
     grad_accum_steps = 8
-    max_seq_len = 512
+    max_seq_len = 1024
     hidden_dim = 1024
     dropout = 0.1

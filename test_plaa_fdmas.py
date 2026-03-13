@@ -28,7 +28,7 @@ TEST_ROOT = '/data/Disk_A/wangxinchang/Datasets/fdmas/test/'
 MODEL_PATH = '/data/Disk_A/wangxinchang/DeepfakeDetectionMethods/PLAA-MLLM_AIGI_Detection/weights/checkpoint_stage1_best.pt'
 
 # 批大小 (由于 MLLM 显存占用较大，建议调小，如 8 或 16)
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 
 # 统一的文本 Prompt
 TEXT_PROMPT = "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning."
@@ -99,12 +99,15 @@ def main():
     # 4. 获取所有子数据集文件夹
     sub_datasets = sorted([d for d in os.listdir(TEST_ROOT) if os.path.isdir(os.path.join(TEST_ROOT, d))])
     
-    print("\n" + "="*55)
-    print(f"{'Dataset':<25} | {'ACC (%)':<10} | {'AP (%)':<10}")
-    print("-" * 55)
+    print("\n" + "="*70)
+    # 新增 RACC、FACC 列
+    print(f"{'Dataset':<25} | {'ACC (%)':<10} | {'RACC (%)':<10} | {'FACC (%)':<10} | {'AP (%)':<10}")
+    print("-" * 70)
 
     all_acc = []
     all_ap = []
+    all_racc = []  # 存储所有子数据集的 RACC
+    all_facc = []  # 存储所有子数据集的 FACC
 
     # 5. 循环测试每个子数据集
     for dataset_name in sub_datasets:
@@ -114,7 +117,8 @@ def main():
         try:
             dataset = ImageFolder(root=dataset_path, transform=transform)
         except Exception as e:
-            print(f"{dataset_name:<25} | Error loading: {e}")
+            # 适配新增列的错误打印格式
+            print(f"{dataset_name:<25} | Error      | Error      | Error      | Error: {e}")
             continue
 
         dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
@@ -150,27 +154,42 @@ def main():
         if len(y_true) == 0:
             continue
 
-        # 计算指标
+        # 计算基础指标
         y_true = np.array(y_true)
         y_pred = np.array(y_pred).reshape(-1, 1)
-        
-        # 计算 ACC (阈值 0.5) 和 AP
         acc = accuracy_score(y_true, y_pred > 0.5)
         ap = average_precision_score(y_true, y_pred)
         
+        # ---------------------- 新增：计算 RACC 和 FACC ----------------------
+        # RACC: Real样本（标签0）的准确率 (预测<=0.5为正确)
+        real_mask = y_true == 0
+        real_total = np.sum(real_mask)
+        racc = (np.sum((y_pred[real_mask] <= 0.5).astype(int)) / real_total) if real_total > 0 else 0.0
+        
+        # FACC: Fake样本（标签1）的准确率 (预测>0.5为正确)
+        fake_mask = y_true == 1
+        fake_total = np.sum(fake_mask)
+        facc = (np.sum((y_pred[fake_mask] > 0.5).astype(int)) / fake_total) if fake_total > 0 else 0.0
+        # ---------------------------------------------------------------------
+
+        # 收集所有指标
         all_acc.append(acc)
         all_ap.append(ap)
+        all_racc.append(racc)
+        all_facc.append(facc)
         
-        # 打印这一行的结果
-        print(f"{dataset_name:<25} | {acc*100:5.2f}      | {ap*100:5.2f}")
+        # 打印当前子数据集结果（新增 RACC、FACC）
+        print(f"{dataset_name:<25} | {acc*100:5.2f}      | {racc*100:5.2f}      | {facc*100:5.2f}      | {ap*100:5.2f}")
 
     # 6. 打印平均值
-    print("-" * 55)
+    print("-" * 70)
     if all_acc:
         mean_acc = np.mean(all_acc) * 100
         mean_ap = np.mean(all_ap) * 100
-        print(f"{'MEAN':<25} | {mean_acc:5.2f}      | {mean_ap:5.2f}")
-    print("=" * 55)
+        mean_racc = np.mean(all_racc) * 100  # 平均 RACC
+        mean_facc = np.mean(all_facc) * 100  # 平均 FACC
+        print(f"{'MEAN':<25} | {mean_acc:5.2f}      | {mean_racc:5.2f}      | {mean_facc:5.2f}      | {mean_ap:5.2f}")
+    print("=" * 70)
 
 if __name__ == '__main__':
     main()

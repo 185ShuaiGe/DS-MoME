@@ -337,6 +337,9 @@ class PLAAMLLMTrainer:
                 for i, n in enumerate(num_prompt_tokens):
                     if n > 0 and n < target_ids.size(1):
                         target_ids[i, :n] = -100
+
+                attention_mask = tokenized_full['attention_mask'].to(self.device)
+                target_ids[attention_mask == 0] = -100
                 
                 # 创建视觉 token 掩码
                 batch_size = target_ids.size(0)
@@ -602,7 +605,7 @@ class PLAAMLLMTrainer:
                 full_text = p + " " + e + self.tokenizer.eos_token
                 full_texts.append(full_text)
             
-            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
                 # 无论哪个阶段，都使用 full_texts 进行前向传播
                 outputs = self.model(images, full_texts)
                 
@@ -679,7 +682,7 @@ class PLAAMLLMTrainer:
                     full_texts.append(full_text)
                 
                 # 使用与训练相同的精度
-                with torch.autocast(device_type='cuda', dtype=torch.bfloat16): 
+                with torch.autocast(device_type='cuda', dtype=torch.float16): 
                     # 无论哪个阶段，都使用 full_texts 进行前向传播
                     outputs = self.model(images, full_texts)
                     
