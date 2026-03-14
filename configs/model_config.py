@@ -26,7 +26,3 @@ class ModelConfig:
     hidden_dim = 1024
     dropout = 0.1
     
-    # Ablation study switches
-    use_resnet_artifact = False
-    use_cross_attention = False
-    enable_text_loss = False
