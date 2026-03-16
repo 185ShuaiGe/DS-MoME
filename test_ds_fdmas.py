@@ -6,6 +6,7 @@ import argparse
 # =========================================================
 parser = argparse.ArgumentParser(description="Test DSMoME on FDMAS dataset")
 parser.add_argument('--gpu_id', type=int, default=0, help='指定使用的 GPU 编号 (例如 0 或 1)')
+parser.add_argument('--checkpoint', type=str, required=True, help='模型权重(.pt文件)的路径')
 args = parser.parse_args()
 
 # 强制系统只对当前 Python 进程暴露指定的显卡，逻辑编号永远为 0
@@ -39,10 +40,10 @@ warnings.filterwarnings('ignore')
 TEST_ROOT = '/data/Disk_A/wangxinchang/Datasets/fdmas/test/'
 
 # 你的训练权重路径
-MODEL_PATH = '/data/Disk_A/wangxinchang/DeepfakeDetectionMethods/DS-MoME/weights/checkpoint_best.pt'
+MODEL_PATH = args.checkpoint
 
 # 批大小 (由于 MLLM 显存占用较大，建议调小，如 8 或 16)
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 
 # 统一的文本 Prompt
 TEXT_PROMPT = "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning."

@@ -235,7 +235,7 @@ class DSMoMETrainer:
         # 设置梯度累加步数
         accum_steps = getattr(self.model_config, 'grad_accum_steps', 8) 
         
-        progress_bar = tqdm(loader, desc="Training")
+        progress_bar = tqdm(loader, desc="Training", disable = True)
         optimizer.zero_grad()
         
         for i, batch in enumerate(progress_bar):
@@ -292,7 +292,7 @@ class DSMoMETrainer:
         all_pred_scores = []
         
         with torch.no_grad():
-            for batch in tqdm(loader, desc="Validating"):
+            for batch in tqdm(loader, desc="Validating", disable = True):
                 images, labels, annotation_info, text_prompts = batch
                 images = images.to(self.device)
                 labels_tensor = labels.to(self.device).float() if isinstance(labels, torch.Tensor) else torch.tensor(labels, device=self.device).float()

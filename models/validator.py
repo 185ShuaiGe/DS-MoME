@@ -77,7 +77,7 @@ class DSMoMEValidator:
         os.makedirs(output_dir, exist_ok=True)
         
         with torch.no_grad():
-            for batch_idx, batch in enumerate(tqdm(val_loader, desc="Validating")):
+            for batch_idx, batch in enumerate(tqdm(val_loader, desc="Validating", disable = True)):
                 images, labels, annotation_info, text_prompts = batch
                 images = images.to(self.device)
                 

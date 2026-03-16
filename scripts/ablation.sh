@@ -20,7 +20,7 @@ EXPERIMENTS=("A" "B" "C1" "C2" "C3" "D" "final")
 # 定义全局超参数
 EPOCHS=3
 LR=5e-5
-BATCH_SIZE=4
+BATCH_SIZE=8
 GPU_ID=1
 
 # 循环遍历每一个消融实验组别
@@ -37,6 +37,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
     # 注意：这里的参数名（如 --epochs）请确保与你 main.py 中 argparse 定义的一致
     # 如果你代码里叫 --num_epochs，请把下面的 --epochs 改为 --num_epochs
     python main.py \
+        --mode train \
         --ablation ${EXP} \
         --num_epochs ${EPOCHS} \
         --lr ${LR} \
@@ -62,7 +63,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
 
     # 使用 ls -t (按时间排序) 和 head -n 1 来获取最新生成的带有该组别前缀的权重文件
     # 这样可以精准定位到刚刚训练完的那份权重
-    BEST_WEIGHT=$(ls -t ${WEIGHT_DIR}/${EXP}_*.pt 2>/dev/null | head -n 1)
+    BEST_WEIGHT=$(ls -t ${WEIGHT_DIR}/${EXP}-*.pt 2>/dev/null | head -n 1)
 
     if [ -z "${BEST_WEIGHT}" ]; then
         echo "⚠️ 警告：找不到 [ ${EXP} ] 组的权重文件，跳过测试步骤！"

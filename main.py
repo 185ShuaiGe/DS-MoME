@@ -147,7 +147,7 @@ def train(
         path_config, model_config, batch_size=args.batch_size
     )
 
-    trainer = DSMoMETrainer(model, model_config, device_config, path_config)
+    trainer = DSMoMETrainer(model, model_config, device_config, path_config, args)
 
     trainer.train(
         train_loader=train_loader,

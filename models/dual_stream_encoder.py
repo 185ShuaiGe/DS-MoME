@@ -164,62 +164,6 @@ class ShallowCNNArtifactStream(nn.Module):
         return features
 
 
-class ResNetArtifactStream(nn.Module):
-    """
-    ResNet 伪影流（消融实验分支）
-    """
-    def __init__(self, config):
-        super().__init__()
-        self.config = config
-        
-        # 固定的 SRM 滤波器组
-        self.srm_filter = SRMFilter()
-        
-        # 加载预训练的 ResNet101
-        resnet = models.resnet101(weights=models.ResNet101_Weights.DEFAULT)
-        
-        # 移除最后的全连接层
-        self.resnet_backbone = nn.Sequential(*list(resnet.children())[:-2])
-        
-        # 调整通道数（ResNet50 最后输出 2048 通道）
-        self.channel_proj = nn.Sequential(
-            nn.Conv2d(2048, 512, kernel_size=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.Conv2d(512, 128, kernel_size=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU()
-        )
-        
-        # 全局平均池化
-        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-    
-    def forward(self, x):
-        """
-        ResNet 伪影流前向传播
-
-        Args:
-            x: 输入图像张量，形状 [B, C, H, W]
-
-        Returns:
-            torch.Tensor: 伪影特征，形状 [B, 128]
-        """
-        # 应用 SRM 滤波器提取噪声残差
-        noise_residual = self.srm_filter(x)
-        
-        # ResNet 提取特征
-        features = self.resnet_backbone(noise_residual)
-        
-        # 通道投影
-        features = self.channel_proj(features)
-        
-        # 全局平均池化
-        features = self.global_avg_pool(features)
-        features = features.flatten(1)
-        
-        return features
-
-
 class ArtifactStream(nn.Module):
     """
     伪影流工厂类，根据配置选择使用浅层 CNN 或 ResNet
@@ -228,10 +172,7 @@ class ArtifactStream(nn.Module):
         super().__init__()
         self.config = config
         
-        if hasattr(config, 'use_resnet_artifact') and config.use_resnet_artifact:
-            self.artifact_stream = ResNetArtifactStream(config)
-        else:
-            self.artifact_stream = ShallowCNNArtifactStream(config)
+        self.artifact_stream = ShallowCNNArtifactStream(config)
     
     def forward(self, x):
         return self.artifact_stream(x)

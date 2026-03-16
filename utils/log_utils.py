@@ -67,6 +67,9 @@ class Logger:
                 # 赋值给类变量，供全局共享
                 Logger._shared_file_handler = file_handler
 
+                absolute_log_path = os.path.abspath(log_file)
+                print(f"📄 [日志系统初始化] 当前实验日志将实时写入: {absolute_log_path}")
+
             # 3. 只要全局共享的 File Handler 存在，就挂载到当前实例上
             if Logger._shared_file_handler is not None:
                 self.logger.addHandler(Logger._shared_file_handler)

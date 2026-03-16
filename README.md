@@ -71,7 +71,7 @@ pip install scikit-learn tqdm pillow
 默认使用 BCE Loss 进行单阶段训练。训练结束后会自动在终端打印详细的**显存占用追踪报告**。
 
 ```bash
-python main.py --mode train --gpu_id 1 --batch_size 8 --num_epochs 15 --lr 1e-5
+python main.py --mode train --gpu_id 0 --batch_size 4 --num_epochs 15 --lr 3e-5 --ablation final
 
 ```
 

@@ -92,14 +92,14 @@ sys.stdout = Logger(LOG_FILE)
 # 3. 基础参数与扰动配置
 # =========================================================
 CLEAN_TEST_ROOT = '/data/Disk_A/wangxinchang/Datasets/fdmas/test'
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'weights/checkpoint_best.pt')
+MODEL_PATH = os.path.join(PROJECT_ROOT, 'weights/final/final-0315-0643-15-3e-05.pt')
 BATCH_SIZE = 8  # 如果显存够，可以调大
 NUM_WORKERS = 4 # 关键参数：通过多进程掩盖 CPU 施加扰动的耗时
 TEXT_PROMPT = "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning."
 
 # 定义需要遍历测试的各种扰动情况
 PERTURBATION_CONFIGS = {
-    # 'Clean (No Perturbation)': IdentityTransform(),
+    'Clean (No Perturbation)': IdentityTransform(),
     'JPEG_90': JPEGPerturbation(quality=90),
     'JPEG_75': JPEGPerturbation(quality=75),
     'JPEG_50': JPEGPerturbation(quality=50),
