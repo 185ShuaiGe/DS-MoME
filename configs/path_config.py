@@ -10,12 +10,10 @@ class PathConfig:
 
     # 替换为本地绝对路径，注意使用 r"" 防止转义
     # pretrained_clip_path = "D:\\cache\\huggingface_cache\\hub\\models--openai--clip-vit-large-patch14"
-    # pretrained_resnet_path = "D:\\cache\\torch_cache\\resnet50-0676ba61.pth"
     # llm_model_name = "D:\\cache\\huggingface_cache\\hub\\models--meta-llama--Meta-Llama-3.1-8B-Instruct"    
 
     # schoolserver
     pretrained_clip_path = "/data/Disk_A/wangxinchang/DeepfakeDetectionMethods/DS-MoME/cache/models--openai--clip-vit-large-patch14"
-    pretrained_resnet_path = "/data/Disk_A/wangxinchang/DeepfakeDetectionMethods/DS-MoME/cache/resnet50-0676ba61.pth"
     llm_model_name = "/data/Disk_A/wangxinchang/DeepfakeDetectionMethods/DS-MoME/cache/models--meta-llama--Meta-Llama-3.1-8B-Instruct"
 
 

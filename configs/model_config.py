@@ -6,7 +6,7 @@ class ModelConfig:
     clip_dim = 1024             # CLIP 模型输出维度
     clip_intermediate_layers = [8, 16, 24]  # 选择 CLIP 的哪些层作为语义特征输入
     num_latent_queries = 128                # 生成的潜在查询数量
-    latent_dim = 512                
+    latent_dim = 512                   # 潜在查询的特征维度                
     
     llm_dim = 4096                  # LLM 模型输出维度
     grad_accum_steps = 8            # 梯度累积步数

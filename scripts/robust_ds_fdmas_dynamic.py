@@ -85,7 +85,7 @@ class Logger(object):
         self.terminal.flush()
         self.log.flush()
 
-LOG_FILE = os.path.join(PROJECT_ROOT, 'logs', 'robust_test_fdmas_dynamic.log')
+LOG_FILE = os.path.join(PROJECT_ROOT, 'logs', 'robust_test_fdmas_dynamic-2.log')
 sys.stdout = Logger(LOG_FILE)
 
 # =========================================================
@@ -99,13 +99,13 @@ TEXT_PROMPT = "<image>\nAnalyze this image and determine if it is real or AI-gen
 
 # 定义需要遍历测试的各种扰动情况
 PERTURBATION_CONFIGS = {
-    'Clean (No Perturbation)': IdentityTransform(),
-    'JPEG_90': JPEGPerturbation(quality=90),
-    'JPEG_75': JPEGPerturbation(quality=75),
-    'JPEG_50': JPEGPerturbation(quality=50),
-    'Blur_Sigma1.0': BlurPerturbation(radius=1.0),
-    'Blur_Sigma2.0': BlurPerturbation(radius=2.0),
-    'Blur_Sigma3.0': BlurPerturbation(radius=3.0),
+    # 'Clean (No Perturbation)': IdentityTransform(),
+    'JPEG_95': JPEGPerturbation(quality=95),
+    # 'JPEG_90': JPEGPerturbation(quality=90),
+    'JPEG_85': JPEGPerturbation(quality=85),
+    'Blur_Sigma0.8': BlurPerturbation(radius=0.8),
+    #'Blur_Sigma1.0': BlurPerturbation(radius=1.0),
+    'Blur_Sigma1.5': BlurPerturbation(radius=1.5),
 }
 
 # 基础的预处理 (模型必需的标准化)

@@ -18,7 +18,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # 日志输出双重保险
-exec > >(tee -a ./logs/test_finished_ablations_1.log) 2>&1
+exec > >(tee -a ./logs/test_finished_ablations_4.log) 2>&1
 
 echo "================================================================="
 echo "🚀 开始独立测试已完成的消融组别"
@@ -26,7 +26,7 @@ echo "🕒 开始时间: $(date "+%Y-%m-%d %H:%M:%S")"
 echo "================================================================="
 
 # 你已经训练好的组别
-EXPERIMENTS=("A" "B" "C1" "C2")
+EXPERIMENTS=("B" "D")
 
 # 存放权重的绝对路径
 BASE_DIR="/data/Disk_A/wangxinchang/DeepfakeDetectionMethods/DS-MoME/weights"

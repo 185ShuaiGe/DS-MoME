@@ -71,7 +71,7 @@ pip install scikit-learn tqdm pillow
 默认使用 BCE Loss 进行单阶段训练。训练结束后会自动在终端打印详细的**显存占用追踪报告**。
 
 ```bash
-python main.py --mode train --gpu_id 0 --batch_size 4 --num_epochs 15 --lr 3e-5 --ablation final
+python main.py --mode train --gpu_id 0 --batch_size 4 --num_epochs 3 --lr 5e-5 --ablation final
 
 ```
 
@@ -103,18 +103,28 @@ python test_ds_fdmas.py --gpu_id 0
 
 ## 🔬 消融实验 (Ablation Studies)
 
-为了验证 DS-MoME 各组件的有效性（对应研究报告表3），模型内置了相应的配置开关，可在 `configs/model_config.py` 或初始化中修改：
+为了严谨验证 DS-MoME 架构中双流特征提取与动态融合机制的有效性，本项目内置了高度模块化的消融实验框架。所有的网络拓扑结构切换已统一收敛至配置中枢，无需手动修改底层模型代码。
 
-* **消融 C (深层伪影流测试 / 语义泄漏验证)**：
-* `use_resnet_artifact = True`：弃用底层 `SRM + 浅层 CNN`，改用深层的 `ResNet-101` 作为特征提取器。
+### 1. 实验组别定义
+在 `configs/ablation_config.py` 中，我们定义了以下标准的消融实验组别：
 
+* **基线 A (Baseline A)**：仅保留高级语义流（CLIP），弃用伪影流与融合模块。用于验证面对复杂合成图像时，单一语义特征的局限性。
+* **基线 B (Baseline B)**：仅保留底层伪影流（SRM + 浅层 CNN），弃用语义流与融合模块。用于验证缺乏全局视觉语境时的检测盲区。
+* **消融 C系列 (Ablation C1/C2/C3)**：频域特征提取鲁棒性测试。通过动态掩码（Masking）分别仅激活第 1、2、3 个 SRM 滤波器。用于证明多通道高频特征提取在防止特征同质化上的不可替代性。
+* **消融 D (Ablation D)**：多模态融合机制退化测试。弃用动态的模态专家混合（MoME）网络，退化为使用传统的双层 MLP 进行特征硬拼接。用于验证 MoME 在克服“模态干扰”与“注意力稀释”方面的优越性。
+* **最终形态 (final)**：完整的 DS-MoME 架构（双流并发 + 3 通道 SRM + 动态 MoME 融合）。
 
-* **消融 D (固定注意力融合测试)**：
-* `use_cross_attention = True`：弃用动态的 `MoMEFusion`，退化为使用单一的传统 Cross-Attention 模块。
+### 2. 一键自动化运行
+我们提供了高度自动化的 Shell 脚本，支持在无人值守的情况下依次完成各组别的训练、最优权重保存与独立评估。
 
+**自动化流水线 (训练 + 评估)：**
+支持一键跑通 A, B, C1, C2, C3, D, final 的全套流程，自动打标时间戳并按组别隔离保存权重。
+```bash
+# 赋予执行权限（首次运行需要）
+chmod +x ./scripts/ablation.sh
 
-* **消融 E (对齐税验证)**：
-* `enable_text_loss = True`：重新启用自回归文本解释生成任务，将 CLM Loss 与 BCE Loss 联合训练，用于证明“强迫大模型生成解释会拉低二分类检测精度”。
+# 启动全流程消融实验
+./scripts/ablation.sh
 
 
 
