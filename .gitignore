@@ -14,6 +14,8 @@ data/holmes_dataset/*
 
 logs/*
 
+./gpu_watcher.sh
+
 plot/*
 
 outputs/*
