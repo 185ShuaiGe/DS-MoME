@@ -12,13 +12,19 @@ __pycache__/
 data/holmes_dataset/*
 !data/holmes_dataset/.gitkeep
 
+
+# 整理不想追踪的文件
 logs/*
+plot/*
+outputs/*
 
 gpu_watcher.sh
+configs/download_model.py
+utils/token_utils.py
+download_dataset.py
+download_llm.py
+requirements.txt
 
-plot/*
-
-outputs/*
 
 # 可选补充：忽略Python编译生成的字节码文件（和__pycache__配套，推荐添加）
 *.pyc
