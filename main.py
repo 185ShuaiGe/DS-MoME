@@ -21,6 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch_size", type=int, default=8, help="批次大小")
     parser.add_argument("--num_epochs", type=int, default=10, help="训练轮数")
     parser.add_argument("--lr", type=float, default=5e-5, help="学习率")
+    parser.add_argument("--patience", type=int, default=3, help="早停耐心值(连续多少轮Loss不降则停止)")
     
     # 硬件与消融实验
     parser.add_argument("--gpu_id", type=int, default=0, help="指定物理 GPU 编号 (如 0 或 1)")
@@ -155,7 +156,8 @@ def train(
         num_epochs=args.num_epochs,
         learning_rate=args.lr,
         batch_size=args.batch_size,
-        checkpoint_path=args.checkpoint
+        checkpoint_path=args.checkpoint,
+        patience=args.patience
     )
 
 

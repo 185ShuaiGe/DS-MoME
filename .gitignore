@@ -14,6 +14,8 @@ data/holmes_dataset/*
 
 logs/*
 
+plot/*
+
 outputs/*
 
 # 可选补充：忽略Python编译生成的字节码文件（和__pycache__配套，推荐添加）

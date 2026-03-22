@@ -157,14 +157,14 @@ class DSMoMETrainer:
         
         return loss_dict
     
-    def train(self, train_loader, val_loader=None, num_epochs=3, learning_rate=1e-4, batch_size=4, checkpoint_path=None):
+    def train(self, train_loader, val_loader=None, num_epochs=3, learning_rate=1e-4, batch_size=4, checkpoint_path=None, patience = 3):
         self.logger.info("Starting training")
 
         
         optimizer = AdamW(
             [p for p in self.model.parameters() if p.requires_grad],
             lr=learning_rate,
-            weight_decay=0.01
+            weight_decay=0.05
         )
         scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs)
         
@@ -178,6 +178,8 @@ class DSMoMETrainer:
         last_metrics = {}
         last_true_labels = []
         last_pred_scores = []
+
+        epochs_no_improve = 0
         
         for epoch in range(self.epoch, num_epochs):
             self.epoch = epoch
@@ -207,13 +209,21 @@ class DSMoMETrainer:
                 else:
                     history['val_auc'].append(0.0)
                 
-                # 保存最佳模型
+                # 更新最佳模型与早停逻辑
                 if val_loss < self.best_metric or self.best_metric == -float('inf'):
                     self.best_metric = val_loss
                     self._save_checkpoint(optimizer, scheduler, is_best=True)
+                    epochs_no_improve = 0  # 如果 loss 改善，计数器清零
+                else:
+                    epochs_no_improve += 1 # 如果 loss 未改善，计数器 +1
+                    self.logger.info(f"EarlyStopping counter: {epochs_no_improve} out of {patience}")
             
             scheduler.step()
             self._save_checkpoint(optimizer, scheduler, is_best=False)
+
+            if epochs_no_improve >= patience:
+                self.logger.info(f"🚨 验证集 Loss 连续 {patience} 轮未下降，触发早停机制！")
+                break
         
         # ==================== 【利用 metrics_utils 生成可视化】 ====================
         self.logger.info("Training completed. Generating all visualizations...")

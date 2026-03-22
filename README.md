@@ -71,22 +71,24 @@ pip install scikit-learn tqdm pillow
 默认使用 BCE Loss 进行单阶段训练。训练结束后会自动在终端打印详细的**显存占用追踪报告**。
 
 ```bash
+# Only train the model
 python main.py --mode train --gpu_id 0 --batch_size 4 --num_epochs 3 --lr 5e-5 --ablation final
 
+# Validate the model(Normal Dataset)
+python main.py --mode validate --gpu_id 0 --batch_size 4 --checkpoint /path/to/your/checkpoint_best.pt
+
+# Validata fdmas
+python test_ds_fdmas.py --gpu_id 0
+
+# Train and validate fdmas
+./scripts/run_pipeline.sh 0
+
+
+
+
 ```
 
-### 2. 单张图像推理 (Single Image Inference)
 
-```bash
-python main.py --mode inference --gpu_id 0 --image_path /path/to/your/image.jpg --checkpoint /path/to/your/checkpoint_best.pt
-```
-
-### 3. 批量图像推理 (Batch Inference)
-
-结果将自动保存至 `outputs/` 目录下的 JSON 文件中。
-
-```bash
-python main.py --mode inference --gpu_id 1 --image_dir /path/to/your/image_folder/ --checkpoint /path/to/your/checkpoint_best.pt
 
 ```
 
