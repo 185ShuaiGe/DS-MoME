@@ -47,8 +47,6 @@ DS-MoME-dev/
 ├── utils/                      # 工具类 (显卡监控、Token 处理、日志记录)
 │   ├── log_utils.py            # 统一的双向日志系统 (控制台+文件)
 │   └── metrics_utils.py        # 评测指标计算及自动化图表绘制 (ROC/PR等)
-├── gpu_watcher.sh              # GPU 显存监控与排队挂机脚本
-├── download_*.py               # LLM、CLIP 与数据集的国内镜像加速下载脚本
 ├── environment.yml             # Conda 环境配置
 └── requirements.txt            # Python 依赖清单
 ```
@@ -60,12 +58,9 @@ DS-MoME-dev/
 确保你的环境中安装了 PyTorch 及 Hugging Face 相关基础库，**强烈建议**使用提供的 conda 配置文件进行安装：
 
 ```bash
-# 1. 使用 conda 创建环境 (推荐)
+# 使用 conda 创建环境 (推荐)
 conda env create -f environment.yml
 conda activate c2ppy39
-
-# 2. 或者使用 pip 安装核心依赖
-pip install -r requirements.txt
 ```
 
 *注意：本项目深度依赖 `bitsandbytes` 进行 LLM 的 4-bit 量化以防显存溢出 (OOM)，请确保其正确安装并在支持 CUDA 的 Linux 环境下运行。*

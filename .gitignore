@@ -5,8 +5,8 @@ __pycache__/
 # 忽略根目录 data 文件夹下所有内容
 /data/**
 
-# 例外：只追踪 data_loader.py
-!/data/data_loader.py
+# 例外：只追踪 dataset_loader.py
+!/data/dataset_loader.py
 
 # 例外：只追踪 holmes_dataset 文件夹（及其内部所有内容）
 data/holmes_dataset/*
