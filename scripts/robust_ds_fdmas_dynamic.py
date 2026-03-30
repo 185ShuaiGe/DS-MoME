@@ -85,14 +85,14 @@ class Logger(object):
         self.terminal.flush()
         self.log.flush()
 
-LOG_FILE = os.path.join(PROJECT_ROOT, 'logs', 'robust_test_fdmas_dynamic-2.log')
+LOG_FILE = os.path.join(PROJECT_ROOT, 'logs', 'robust_test_fdmas_dynamic-3.log')
 sys.stdout = Logger(LOG_FILE)
 
 # =========================================================
 # 3. 基础参数与扰动配置
 # =========================================================
 CLEAN_TEST_ROOT = '/data/Disk_A/wangxinchang/Datasets/fdmas/test'
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'weights/final/final-0315-0643-15-3e-05.pt')
+MODEL_PATH = os.path.join(PROJECT_ROOT, 'weights/final/final-0324-1209-10-0.0001.pt')
 BATCH_SIZE = 8  # 如果显存够，可以调大
 NUM_WORKERS = 4 # 关键参数：通过多进程掩盖 CPU 施加扰动的耗时
 TEXT_PROMPT = "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning."
@@ -101,11 +101,15 @@ TEXT_PROMPT = "<image>\nAnalyze this image and determine if it is real or AI-gen
 PERTURBATION_CONFIGS = {
     # 'Clean (No Perturbation)': IdentityTransform(),
     'JPEG_95': JPEGPerturbation(quality=95),
-    # 'JPEG_90': JPEGPerturbation(quality=90),
+    'JPEG_90': JPEGPerturbation(quality=90),
     'JPEG_85': JPEGPerturbation(quality=85),
+    'JPEG_75': JPEGPerturbation(quality=75),
+    'JPEG_50': JPEGPerturbation(quality=50),
     'Blur_Sigma0.8': BlurPerturbation(radius=0.8),
-    #'Blur_Sigma1.0': BlurPerturbation(radius=1.0),
+    'Blur_Sigma1.0': BlurPerturbation(radius=1.0),
     'Blur_Sigma1.5': BlurPerturbation(radius=1.5),
+    'Blur_Sigma2.0': BlurPerturbation(radius=2.0),
+    'Blur_Sigma3.0': BlurPerturbation(radius=3.0),
 }
 
 # 基础的预处理 (模型必需的标准化)

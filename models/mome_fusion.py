@@ -18,9 +18,9 @@ class MoMEFusion(nn.Module):
         self.latent_dim = config.latent_dim
         
         # 语义特征投影 - 考虑多尺度特征拼接
-        # 假设 semantic_features 包含多个层的特征
-        # 这里使用 3 层作为默认值，实际使用时会根据输入自动适应
-        self.semantic_proj = nn.Linear(config.clip_dim * 3, self.latent_dim)
+        # 【修改】：动态读取模型配置中提取了多少层 CLIP 特征
+        num_clip_layers = len(config.clip_intermediate_layers)
+        self.semantic_proj = nn.Linear(config.clip_dim * num_clip_layers, self.latent_dim)
         
         # 伪影特征投影
         self.artifact_proj = nn.Linear(128, self.latent_dim)

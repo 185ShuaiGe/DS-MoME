@@ -61,7 +61,7 @@ class DSMoMETrainer:
         self.epoch = 0
 
         self.start_time_str = datetime.now().strftime("%m%d-%H%M")
-        
+                
         # 记录本次运行【开始时】的时间戳 (格式: 月日-时分，例如 0314-1530)
         self._setup_training()
     
@@ -267,7 +267,7 @@ class DSMoMETrainer:
                 text_input_ids = tokenized['input_ids']
                 text_attention_mask = tokenized['attention_mask']
             
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
                 outputs = self.model(images, text_prompts)
                 loss_dict = self.compute_loss(outputs, labels_tensor, text_input_ids, text_attention_mask)
             
@@ -308,7 +308,7 @@ class DSMoMETrainer:
                 labels_tensor = labels.to(self.device).float() if isinstance(labels, torch.Tensor) else torch.tensor(labels, device=self.device).float()
                 
                 # 使用与训练相同的精度
-                with torch.autocast(device_type='cuda', dtype=torch.float16): 
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16): 
                     outputs = self.model(images, text_prompts)
                     logits = outputs.get('detection_logits', None)
                     

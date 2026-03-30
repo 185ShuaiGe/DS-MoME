@@ -46,7 +46,7 @@ from configs.path_config import PathConfig
 from models.ds_mome import DSMoME
 
 TEST_ROOT = '/data/Disk_A/wangxinchang/Datasets/fdmas/test/'
-BATCH_SIZE = 4
+BATCH_SIZE = 2
 TEXT_PROMPT = "<image>\nAnalyze this image and determine if it is real or AI-generated. Please provide your reasoning."
 
 def main():
